@@ -1,0 +1,259 @@
+/* ======================
+   STYLE CHUNG INSTAGRAM BOT GUI - PHỐI MÀU XANH DƯƠNG NHẠT
+   ====================== */
+
+QMainWindow {
+    border: 1px solid #B0C4DE;
+}
+
+/* Font mặc định toàn cục */
+* {
+    font-family: 'Segoe UI Variable', 'Segoe UI', 'Roboto', 'Arial';
+    font-size: 11pt;
+    color: #000000;
+}
+
+/* Tiêu đề tab */
+QTabBar::tab {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #1976D2;
+    padding: 8px 30px;
+}
+QTabBar::tab:selected {
+    border-bottom: 2px solid #1976D2;
+    background: #E3F2FD;
+}
+
+/* Sidebar */
+QWidget#Sidebar {
+    background: #FFFFFF;
+    border-right: 1px solid #90CAF9;
+}
+QPushButton[sidebar="true"] {
+    background: #FFFFFF;
+    font-weight: bold;
+    color: #1976D2;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 6px 12px;
+    text-align: left;
+    font-size: 11pt;
+    font-family: 'Segoe UI Semibold', 'Segoe UI', 'Roboto', 'Arial';
+}
+QPushButton[sidebar="true"]:checked, QPushButton[sidebar="true"]:hover {
+    background: #E3F2FD;
+    border: 1px solid #90CAF9;
+    color: #1976D2;
+}
+
+/* Tiêu đề lớn */
+QLabel[role="title"] {
+    font-size: 15pt;
+    font-weight: bold;
+    color: #333333;
+    font-family: 'Segoe UI Semibold', 'Segoe UI', 'Roboto', 'Arial';
+}
+
+/* Văn bản phụ */
+QLabel[role="sub"] {
+    font-size: 10pt;
+    color: #666666;
+    font-family: 'Segoe UI Regular', 'Segoe UI', 'Roboto', 'Arial';
+}
+
+/* Nền chính */
+QWidget {
+    background: #F5F8FA;
+}
+
+/* Nền thành phần, groupbox, frame */
+QGroupBox, QFrame, QStackedWidget, QTabWidget::pane {
+    background: #FFFFFF;
+    border: 1px solid #90CAF9;
+    border-radius: 8px;
+    margin-top: 8px;
+}
+QGroupBox:title {
+    color: #1976D2;
+    font-weight: bold;
+    left: 10px;
+    top: 2px;
+}
+
+/* Nút chức năng */
+QPushButton[role="main"] {
+    height: 35px;
+    border-radius: 17px;
+    font-weight: bold;
+    padding: 4px 8px;
+    font-size: 11pt;
+    font-family: 'Segoe UI Semibold', 'Segoe UI', 'Roboto', 'Arial';
+    border: none;
+}
+QPushButton[role="main"]:hover {
+    opacity: 0.9;
+}
+QPushButton[role="main"]:pressed {
+    opacity: 0.8;
+}
+QPushButton[role="main"]:disabled {
+    opacity: 0.5;
+    background: #CCCCCC;
+}
+QPushButton[role="main"][color="green"] {
+    background: #4CAF50;
+    color: #fff;
+}
+QPushButton[role="main"][color="red"] {
+    background: #D32F2F;
+    color: #fff;
+}
+QPushButton[role="main"][color="yellow"] {
+    background: #FBC02D;
+    color: #fff;
+}
+QPushButton[role="main"][color="blue"] {
+    background: #8dc6f0; /* Màu nền mặc định khi chưa nhấn */
+    color: #fff;
+}
+QPushButton[role="main"][color="blue"]:pressed {
+    background: #38a3f2; /* Màu nền khi nhấn */
+}
+
+/* Nút tác vụ nhỏ */
+QPushButton[role="action"] {
+    width: 45px;
+    height: 35px;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 11pt;
+    font-weight: bold;
+    font-family: 'Segoe UI Semibold', 'Segoe UI', 'Roboto', 'Arial';
+    border: none;
+}
+
+/* Combobox, Spinbox, Textbox */
+QComboBox, QSpinBox, QLineEdit {
+    min-height: 28px;
+    border: 1px solid #CCCCCC;
+    border-radius: 4px;
+    background: #FFF;
+    padding: 0 8px;
+    font-family: 'Segoe UI Regular', 'Segoe UI', 'Roboto', 'Arial';
+    font-size: 11pt;
+}
+QComboBox:focus, QSpinBox:focus, QLineEdit:focus {
+    border: 1.5px solid #1976D2;
+}
+QComboBox {
+    max-width: 200px;
+}
+QSpinBox {
+    min-width: 65px;
+    max-width: 65px;
+}
+QLineEdit {
+    /* Removed min-width to allow stretching */
+}
+QLineEdit::placeholder-text {
+    font-style: italic;
+    color: #999999;
+}
+
+/* Checkbox, Radio */
+QCheckBox:checked, QRadioButton:checked {
+    color: #1976D2;
+}
+
+/* Bảng dữ liệu */
+QHeaderView::section {
+    background-color: #F8F8F8; /* Màu nền của tiêu đề */
+    color: #333333; /* Màu chữ của tiêu đề */
+    /* Removed specific padding, border, font size, font weight, font family, height, vertical-align, text-align */
+}
+QHeaderView::section:hover {
+    background-color: #F0F0F0;
+}
+QTableWidget {
+    background: #FFF;
+    gridline-color: #B0C4DE;
+    font-family: 'Segoe UI Regular', 'Segoe UI', 'Roboto', 'Arial'; /* Set Regular font */
+    font-size: 10.5pt;
+    border: 1px solid #B0C4DE; /* Giữ đường viền ngoài cùng của bảng */
+}
+QTableWidget::item {
+    background: transparent;
+    border: none; /* Loại bỏ tất cả đường viền riêng của item */
+    padding: 0px; /* Loại bỏ padding để đảm bảo căn chỉnh đường kẻ */
+}
+QTableWidget::item:selected {
+    background: #CCE0F5; /* Màu xanh nhạt duy nhất khi được chọn */
+}
+QTableWidget::item:hover {
+    background: #E0F7FA;
+}
+QTableWidget QScrollBar:vertical {
+    width: 8px;
+    background: #E3F2FD;
+}
+QTableWidget QScrollBar::handle:vertical {
+    background: #90CAF9;
+    border-radius: 4px;
+}
+
+/* Trạng thái hiển thị */
+QLabel[state="success"] { color: #4CAF50; font-weight: normal; font-size: 9.5pt; }
+QLabel[state="running"] { color: #FFC107; font-weight: normal; font-size: 9.5pt; }
+QLabel[state="error"] { color: #F44336; font-weight: normal; font-size: 9.5pt; }
+QLabel[state="pause"] { color: #9E9E9E; font-weight: normal; font-size: 9.5pt; }
+
+/* Toast/thông báo */
+QWidget#Toast {
+    background: #FFCDD2;
+    color: #D32F2F;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 10pt;
+    font-family: 'Segoe UI Regular', 'Segoe UI', 'Roboto', 'Arial';
+    font-weight: normal;
+}
+
+/* Tooltip lỗi */
+QToolTip {
+    background: #FFCDD2;
+    color: #D32F2F;
+    border: 1px solid #F44336;
+    font-size: 10pt;
+    font-family: 'Segoe UI Regular', 'Segoe UI', 'Roboto', 'Arial';
+    font-weight: normal;
+}
+
+/* Styling for QMenu and its items */
+QMenu {
+    background-color: #FFFFFF;
+    border: 1px solid #B0C4DE;
+    border-radius: 4px;
+}
+
+QMenu::item {
+    padding: 4px 10px;
+    background-color: transparent;
+    font-size: 7pt; /* Kích thước phông chữ mong muốn */
+}
+
+QMenu::item:selected {
+    background-color: #CCE0F5; /* Màu nền khi mục được chọn */
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: #B0C4DE;
+    margin: 4px 0;
+}
+
+/* QMenu::indicator để cố gắng điều chỉnh kích thước icon */
+QMenu::indicator {
+    width: 7pt;  /* Cố gắng điều chỉnh kích thước icon */
+    height: 7pt;
+} 

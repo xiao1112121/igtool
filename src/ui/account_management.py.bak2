@@ -1,0 +1,1134 @@
+import os
+import sys
+import time
+import random
+import json
+import threading
+import queue
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple, Any
+import traceback
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
+                            QLabel, QLineEdit, QTextEdit, QFileDialog, QMessageBox,
+                            QProgressBar, QComboBox, QCheckBox, QSpinBox, QGroupBox,
+                            QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
+                            QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog)
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent
+from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QGuiApplication, QAction
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from webdriver_manager.chrome import ChromeDriverManager
+from seleniumwire import webdriver as wire_webdriver
+from seleniumwire.utils import decode
+from twocaptcha import TwoCaptcha
+from src.utils.captcha_handler import CaptchaHandler
+from src.ui.utils import random_delay, wait_for_element, wait_for_element_clickable, retry_operation
+from src.ui.context_menus import AccountContextMenu
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+class CheckboxDelegate(QStyledItemDelegate):
+    CheckboxStateRole = Qt.UserRole + 1
+    checkbox_clicked = Signal(int, bool)
+
+    def paint(self, painter: QPainter, option, index: QModelIndex):
+        super().paint(painter, option, index)
+        check_state_data = index.data(self.CheckboxStateRole)
+        is_checked = bool(check_state_data)
+
+        checkbox_size = 15
+        rect = option.rect
+        x = rect.x() + (rect.width() - checkbox_size) // 2
+        y = rect.y() + (rect.height() - checkbox_size) // 2
+        checkbox_rect = QRect(x, y, checkbox_size, checkbox_size)
+
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        if is_checked:
+            painter.setBrush(QColor("#1976D2"))
+            painter.setPen(QColor("#1976D2"))
+        else:
+            painter.setBrush(Qt.white)
+            painter.setPen(QColor("#CCCCCC"))
+        
+        painter.drawRoundedRect(checkbox_rect, 2, 2)
+
+        if is_checked:
+            painter.setPen(QPen(Qt.white, 2))
+            painter.drawLine(x + 3, y + 7, x + 6, y + 10)
+            painter.drawLine(x + 6, y + 10, x + 12, y + 4)
+            
+        painter.restore()
+
+    def editorEvent(self, event, model, option, index: QModelIndex):
+        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            current_state = index.data(self.CheckboxStateRole)
+            new_state = not bool(current_state)
+            
+            model.setData(index, new_state, self.CheckboxStateRole)
+            
+            self.checkbox_clicked.emit(index.row(), new_state)
+            return True
+        return False
+
+class CheckableHeaderView(QHeaderView):
+    toggleAllCheckboxes = Signal(bool)
+
+    def __init__(self, orientation, parent=None):
+        super().__init__(orientation, parent)
+        self._checked = False
+        self.setSectionsClickable(True)
+
+    def paintSection(self, painter, rect, logicalIndex):
+        if logicalIndex == 0:
+            checkbox_size = 15
+            x = rect.x() + (rect.width() - checkbox_size) // 2
+            y = rect.y() + (rect.height() - checkbox_size) // 2
+            checkbox_rect = QRect(x, y, checkbox_size, checkbox_size)
+
+            painter.save()
+            painter.setRenderHint(QPainter.Antialiasing)
+
+            if self._checked:
+                painter.setBrush(QColor("#1976D2"))
+                painter.setPen(QColor("#1976D2"))
+            else:
+                painter.setBrush(Qt.white)
+                painter.setPen(QColor("#CCCCCC"))
+            
+            painter.drawRoundedRect(checkbox_rect, 2, 2)
+
+            if self._checked:
+                painter.setPen(QPen(Qt.white, 2))
+                painter.drawLine(x + 3, y + 7, x + 6, y + 10)
+                painter.drawLine(x + 6, y + 10, x + 12, y + 4)
+                
+            painter.restore()
+        else:
+            super().paintSection(painter, rect, logicalIndex)
+
+    def mousePressEvent(self, event):
+        if self.logicalIndexAt(event.pos()) == 0 and event.button() == Qt.LeftButton:
+            self._checked = not self._checked
+            self.toggleAllCheckboxes.emit(self._checked)
+            self.viewport().update()
+            event.accept()
+        else:
+            super().mousePressEvent(event)
+
+
+class AccountManagementTab(QWidget):
+    proxy_updated = Signal()
+
+    USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    ]
+
+    LANGUAGES = [
+        "en-US,en;q=0.9",
+        "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+        "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",
+        "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7"
+    ]
+
+    PROXY_USAGE_THRESHOLD = 5
+    RECAPTCHA_RETRY_COUNT = 3
+    RECAPTCHA_WAIT_TIME = 10
+
+    def __init__(self, proxy_tab_instance=None, parent=None):
+        super().__init__(parent)
+        self.proxy_tab = proxy_tab_instance
+        self.accounts_file = "accounts.json"
+        self.folder_map_file = "folder_map.json"
+        self.accounts = self.load_accounts()
+        self.folder_map = self.load_folder_map()
+        self.active_drivers = []
+        self.stealth_mode_enabled = False
+        self.proxies = self.load_proxies()
+        self.init_ui()
+        self.update_account_table()
+        self.captcha_handler = CaptchaHandler('b452b70e7afcd461cbd3758dac95b3c0')
+
+    def init_driver(self, proxy=None):
+        print("[DEBUG] Bắt đầu khởi tạo driver...")
+        options = Options()
+        
+        random_user_agent = random.choice(self.USER_AGENTS)
+        options.add_argument(f"user-agent={random_user_agent}")
+        print(f"[DEBUG] Sử dụng User-Agent: {random_user_agent}")
+
+        random_language = random.choice(self.LANGUAGES)
+        options.add_argument(f"--lang={random_language}")
+        options.add_argument(f"--accept-lang={random_language}")
+        print(f"[DEBUG] Sử dụng Ngôn ngữ: {random_language}")
+
+        if self.stealth_mode_enabled:
+            options.add_argument("--incognito")
+            print("[DEBUG] Chế độ ẩn danh được bật.")
+
+        proxy_options = {}
+        if proxy: 
+            print(f"[DEBUG] Proxy được cung cấp: {proxy}")
+            proxy_parts = proxy.split(':')
+            if len(proxy_parts) == 4:
+                proxy_ip_port = f"{proxy_parts[0]}:{proxy_parts[1]}"
+                proxy_user = proxy_parts[2]
+                proxy_pass = proxy_parts[3]
+                
+                proxy_options = {
+                    'proxy': {
+                        'http': f'http://{proxy_user}:{proxy_pass}@{proxy_ip_port}',
+                        'https': f'https://{proxy_user}:{proxy_pass}@{proxy_ip_port}',
+                        'no_proxy': 'localhost,127.0.0.1' 
+                    }
+                }
+                print(f"[DEBUG] Sử dụng proxy có xác thực với selenium-wire: {proxy_ip_port}")
+            elif len(proxy_parts) == 2:
+                proxy_ip_port = f"{proxy_parts[0]}:{proxy_parts[1]}"
+                proxy_options = {
+                    'proxy': {
+                        'http': f'http://{proxy_ip_port}',
+                        'https': f'https://{proxy_ip_port}'
+                    }
+                }
+                print(f"[DEBUG] Sử dụng proxy không xác thực với selenium-wire: {proxy_ip_port}")
+            else:
+                print(f"[WARN] Định dạng proxy không hợp lệ, bỏ qua: {proxy}")
+                proxy = None
+        else:
+            print("[DEBUG] Không có proxy được cung cấp")
+        
+        print("[DEBUG] Đang khởi tạo Chrome driver...")
+        try:
+            driver = wire_webdriver.Chrome(seleniumwire_options=proxy_options, options=options)
+            print("[DEBUG] Chrome driver đã được khởi tạo thành công")
+            return driver
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi khởi tạo Chrome driver: {str(e)}")
+            raise
+
+    def handle_recaptcha(self, driver, username):
+        try:
+            recaptcha_frame = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[src*='recaptcha']"))
+            )
+            print(f"[DEBUG] Phát hiện reCAPTCHA cho tài khoản {username}")
+
+            driver.switch_to.frame(recaptcha_frame)
+
+            site_key = driver.find_element(By.CLASS_NAME, "g-recaptcha").get_attribute("data-sitekey")
+            print(f"[DEBUG] Site key của reCAPTCHA: {site_key}")
+
+            driver.switch_to.default_content()
+
+            solver = TwoCaptcha('b452b70e7afcd461cbd3758dac95b3c0')
+            try:
+                result = solver.recaptcha(
+                    sitekey=site_key,
+                    url=driver.current_url,
+                )
+                print(f"[DEBUG] Đã nhận kết quả từ 2captcha cho {username}")
+
+                driver.execute_script(
+                    f'document.getElementById("g-recaptcha-response").innerHTML="{result["code"]}";'
+                )
+                print(f"[DEBUG] Đã điền kết quả reCAPTCHA cho {username}")
+
+                submit_button = WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))
+                )
+                submit_button.click()
+                print(f"[DEBUG] Đã submit form sau khi giải reCAPTCHA cho {username}")
+
+                time.sleep(3)
+                return True
+
+            except Exception as e:
+                print(f"[ERROR] Lỗi khi giải reCAPTCHA cho {username}: {e}")
+                return False
+
+        except TimeoutException:
+            print(f"[DEBUG] Không tìm thấy reCAPTCHA cho {username}")
+            return True
+        except Exception as e:
+            print(f"[ERROR] Lỗi không xác định khi xử lý reCAPTCHA cho {username}: {e}")
+            return False
+        
+    def init_ui(self):
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        sidebar_widget = QWidget()
+        self.sidebar_layout = QVBoxLayout(sidebar_widget)
+        self.sidebar_layout.setContentsMargins(10, 10, 10, 10)
+        self.sidebar_layout.setSpacing(10)
+
+        btn_add_account = QPushButton("Thêm tài khoản")
+        btn_add_account.clicked.connect(self.add_account)
+        self.sidebar_layout.addWidget(btn_add_account)
+
+        btn_import_accounts = QPushButton("Import .txt/.csv")
+        btn_import_accounts.clicked.connect(self.import_accounts)
+        self.sidebar_layout.addWidget(btn_import_accounts)
+
+        btn_add_folder = QPushButton("Thêm thư mục")
+        btn_add_folder.clicked.connect(self.open_folder_manager)
+        self.sidebar_layout.addWidget(btn_add_folder)
+
+        self.sidebar_layout.addStretch()
+
+        main_layout.addWidget(sidebar_widget, stretch=15)
+        
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+
+        toolbar_frame = QFrame()
+        toolbar_frame.setStyleSheet("QFrame { padding-top: 6px; padding-bottom: 6px; }\n")
+        toolbar_layout = QHBoxLayout(toolbar_frame)
+        toolbar_layout.setSpacing(8)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.category_combo = QComboBox()
+        self.category_combo.addItem("Tất cả")
+        self.load_folder_list_to_combo()
+        self.category_combo.currentIndexChanged.connect(self.on_folder_changed)
+        self.category_combo.setFixedSize(200, 35)
+        toolbar_layout.addWidget(self.category_combo)
+
+        btn_load = QPushButton("LOAD")
+        btn_load.setFixedSize(80, 35)
+        btn_load.setProperty("role", "main")
+        btn_load.setProperty("color", "yellow")
+        btn_load.clicked.connect(self.load_accounts)
+        toolbar_layout.addWidget(btn_load)
+
+        stats_layout = QHBoxLayout()
+        stats_layout.setSpacing(8)
+        
+        self.total_accounts_label = QLabel("Tổng: 0")
+        self.total_accounts_label.setStyleSheet("color: #333333; font-weight: semibold; font-size: 10.5pt;")
+        stats_layout.addWidget(self.total_accounts_label)
+        
+        self.live_accounts_label = QLabel("Live: 0")
+        self.live_accounts_label.setStyleSheet("color: #4CAF50; font-weight: semibold; font-size: 10.5pt;")
+        stats_layout.addWidget(self.live_accounts_label)
+        
+        self.die_accounts_label = QLabel("Die: 0")
+        self.die_accounts_label.setStyleSheet("color: #D32F2F; font-weight: semibold; font-size: 10.5pt;")
+        stats_layout.addWidget(self.die_accounts_label)
+        
+        toolbar_layout.addLayout(stats_layout)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Tìm kiếm tài khoản...")
+        self.search_input.textChanged.connect(self.filter_accounts)
+        self.search_input.setFixedWidth(150)
+        self.search_input.setFixedHeight(35)
+        toolbar_layout.addWidget(self.search_input)
+
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(8)
+
+        btn_search = QPushButton("🔍")
+        btn_search.clicked.connect(lambda: self.filter_accounts(self.search_input.text()))
+        btn_search.setFixedSize(50, 35)
+        btn_search.setProperty("role", "main")
+        btn_search.setProperty("color", "blue")
+        button_layout.addWidget(btn_search)
+        
+        toolbar_layout.addLayout(button_layout)
+        
+        right_layout.addWidget(toolbar_frame)
+
+        self.account_table = QTableWidget()
+        self.account_table.setColumnCount(10)
+        self.account_table.setHorizontalHeaderLabels([
+            "", "STT", "Tên đăng nhập", "Mật khẩu", "Trạng thái", 
+            "Proxy", "Trạng thái Proxy", "Follower", "Following", "Hành động cuối"
+        ])
+        
+        self.checkbox_delegate = CheckboxDelegate(self)
+        self.account_table.setItemDelegateForColumn(0, self.checkbox_delegate)
+        self.checkbox_delegate.checkbox_clicked.connect(self.on_checkbox_clicked)
+
+        self.header_checkbox = CheckableHeaderView(Qt.Horizontal, self.account_table)
+        self.account_table.setHorizontalHeader(self.header_checkbox)
+        header = self.header_checkbox
+
+        header.setSectionResizeMode(0, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(0, 29)
+        header.setSectionResizeMode(1, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(1, 29)
+        header.setSectionResizeMode(2, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(2, 150)
+        header.setSectionResizeMode(3, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(3, 150)
+        header.setSectionResizeMode(4, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(4, 120)
+        header.setSectionResizeMode(5, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(5, 200)
+        header.setSectionResizeMode(6, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(6, 150)
+        header.setSectionResizeMode(7, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(7, 79)
+        header.setSectionResizeMode(8, QHeaderView.Fixed)
+        self.account_table.setColumnWidth(8, 79)
+        header.setSectionResizeMode(9, QHeaderView.Stretch)
+        self.account_table.verticalHeader().setDefaultSectionSize(29)
+
+        header.setStretchLastSection(True)
+
+        self.account_table.horizontalHeader().setDefaultAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+        self.account_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.account_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.account_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.account_table.customContextMenuRequested.connect(self.show_context_menu)
+        self.account_table.itemChanged.connect(self.handle_item_changed)
+        self.account_table.verticalHeader().setVisible(False)
+        self.account_table.itemDoubleClicked.connect(self.on_table_item_double_clicked)
+
+        right_layout.addWidget(self.account_table)
+        main_layout.addWidget(right_panel, stretch=85)
+
+        self.header_checkbox.toggleAllCheckboxes.connect(self.toggle_all_accounts_selection)
+
+    def load_accounts(self):
+        if os.path.exists(self.accounts_file):
+            try:
+                with open(self.accounts_file, 'r', encoding='utf-8') as f:
+                    accounts_data = json.load(f)
+                    for account in accounts_data:
+                        if "proxy_status" not in account:
+                            account["proxy_status"] = "Chưa kiểm tra"
+                    return accounts_data
+            except json.JSONDecodeError:
+                print("[ERROR] Lỗi đọc file accounts.json. File có thể bị hỏng.")
+                return []
+        return []
+
+    def save_accounts(self):
+        with open(self.accounts_file, 'w', encoding='utf-8') as f:
+            json.dump(self.accounts, f, indent=4, ensure_ascii=False)
+        print("[INFO] Tài khoản đã được lưu.")
+
+    def save_folder_map(self):
+        with open(self.folder_map_file, 'w', encoding='utf-8') as f:
+            json.dump(self.folder_map, f, indent=4, ensure_ascii=False)
+        print("[INFO] Bản đồ thư mục đã được lưu.")
+
+    def add_account(self):
+        username, ok = QInputDialog.getText(self, "Thêm tài khoản", "Tên người dùng:")
+        if ok and username:
+            password, ok = QInputDialog.getText(self, "Thêm tài khoản", "Mật khẩu:", QLineEdit.Password)
+            if ok:
+                proxy, ok = QInputDialog.getText(self, "Thêm tài khoản", "Proxy (tùy chọn):")
+                if ok:
+                    new_account = {
+                        "selected": False,
+                        "username": username,
+                        "password": password,
+                        "fullname": "",
+                        "proxy": proxy,
+                        "status": "Chưa đăng nhập",
+                        "gender": "-",
+                        "followers": "",
+                        "following": "",
+                        "last_action": "",
+                        "proxy_status": "Chưa kiểm tra"
+                    }
+                    self.accounts.append(new_account)
+                    self.save_accounts()
+                    self.update_account_table()
+                    QMessageBox.information(self, "Thêm tài khoản", "Tài khoản đã được thêm thành công.")
+
+    def update_account_table(self, accounts_to_display=None):
+        if accounts_to_display is None:
+            accounts_to_display = self.accounts
+
+        total_count = len(accounts_to_display)
+        live_count = sum(1 for acc in accounts_to_display if acc.get("status") == "Live" or acc.get("status") == "Đã đăng nhập")
+        die_count = sum(1 for acc in accounts_to_display if acc.get("status") == "Die")
+
+        self.total_accounts_label.setText(f"Tổng: {total_count}")
+        self.live_accounts_label.setText(f"Live: {live_count}")
+        self.die_accounts_label.setText(f"Die: {die_count}")
+
+        self.account_table.blockSignals(True)
+        self.account_table.setRowCount(len(accounts_to_display))
+        for row_idx, account in enumerate(accounts_to_display):
+            item_checkbox = QTableWidgetItem()
+            item_checkbox.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable | Qt.ItemIsSelectable)
+            item_checkbox.setData(CheckboxDelegate.CheckboxStateRole, account.get("selected", False))
+            self.account_table.setItem(row_idx, 0, item_checkbox)
+
+            stt_item = QTableWidgetItem(str(row_idx + 1))
+            stt_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 1, stt_item)
+
+            username_item = QTableWidgetItem(account.get("username", ""))
+            username_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 2, username_item)
+
+            password_item = QTableWidgetItem(account.get("password", ""))
+            password_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 3, password_item)
+
+            status_item = QTableWidgetItem(account.get("status", "Chưa đăng nhập"))
+            status_item.setTextAlignment(Qt.AlignCenter)
+            if account.get("status") == "Đăng nhập thất bại":
+                status_item.setForeground(QColor("red"))
+            elif account.get("status") == "Đã đăng nhập" or account.get("status") == "Live":
+                status_item.setForeground(QColor("green"))
+            elif account.get("status") == "Die":
+                status_item.setForeground(QColor("red"))
+            else:
+                status_item.setForeground(QColor("black"))
+            self.account_table.setItem(row_idx, 4, status_item)
+
+            proxy_item = QTableWidgetItem(account.get("proxy", ""))
+            proxy_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 5, proxy_item)
+
+            proxy_status_item = QTableWidgetItem(account.get("proxy_status", "Chưa kiểm tra"))
+            proxy_status_item.setTextAlignment(Qt.AlignCenter)
+            if account.get("proxy_status") == "Die":
+                proxy_status_item.setForeground(QColor("red"))
+            elif account.get("proxy_status") == "OK":
+                proxy_status_item.setForeground(QColor("green"))
+            else:
+                proxy_status_item.setForeground(QColor("black"))
+            self.account_table.setItem(row_idx, 6, proxy_status_item)
+
+            follower_item = QTableWidgetItem(account.get("followers", ""))
+            follower_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 7, follower_item)
+
+            following_item = QTableWidgetItem(account.get("following", ""))
+            following_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 8, following_item)
+
+            last_action_item = QTableWidgetItem(account.get("last_action", ""))
+            last_action_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 9, last_action_item)
+        self.account_table.blockSignals(False)
+
+    def on_checkbox_clicked(self, row, new_state):
+        if row < len(self.accounts):
+            self.accounts[row]["selected"] = new_state
+            self.save_accounts()
+            print(f"[DEBUG] Checkbox tại hàng {row} được chuyển thành: {new_state}. Tài khoản: {self.accounts[row]['username']}")
+
+    def handle_item_changed(self, item):
+        if self.account_table.signalsBlocked():
+            return
+
+        row = item.row()
+        col = item.column()
+
+        if col == 0:
+            return
+
+        if col == 2:
+            self.accounts[row]["username"] = item.text()
+        elif col == 3:
+            self.accounts[row]["password"] = item.text()
+        elif col == 5:
+            self.accounts[row]["proxy"] = item.text()
+        else:
+            return
+
+        self.save_accounts()
+
+    def filter_accounts(self, text):
+        filtered_accounts = [
+            account for account in self.accounts
+            if text.lower() in account.get("username", "").lower() or
+               text.lower() in account.get("status", "").lower() or
+               text.lower() in account.get("proxy", "").lower() or
+               text.lower() in account.get("proxy_status", "").lower() or
+               text.lower() in account.get("last_action", "").lower()
+        ]
+        if self.category_combo.currentText() != "Tất cả":
+            folder_name = self.category_combo.currentText()
+            filtered_accounts = [acc for acc in filtered_accounts if self.folder_map.get(acc.get("username"), "Tổng") == folder_name]
+        
+        self.update_account_table(filtered_accounts)
+
+    def get_window_positions(self, num_windows):
+        screen = QGuiApplication.primaryScreen().geometry()
+        screen_width = screen.width()
+        screen_height = screen.height()
+
+        window_width = 448
+        window_height = 415
+        
+        positions = []
+
+        max_cols = screen_width // window_width
+        max_rows = screen_height // window_height
+
+        if max_cols == 0 or max_rows == 0:
+            print("[WARN] Màn hình quá nhỏ để hiển thị cửa sổ theo kích thước mong muốn. Vui lòng tăng độ phân giải màn hình hoặc giảm số lượng cửa sổ.")
+            return [(0, 0, window_width, window_height)]
+
+        cols = max_cols
+        rows = (num_windows + cols - 1) // cols
+
+        for i in range(num_windows):
+            row = i // cols
+            col = i % cols
+
+            x = col * window_width
+            y = row * window_height
+
+            if x + window_width > screen_width:
+                x = screen_width - window_width
+            if y + window_height > screen_height:
+                y = screen_height - window_height
+            
+            x = max(0, x)
+            y = max(0, y)
+
+            positions.append((x, y, window_width, window_height))
+        return positions
+
+    def login_selected_accounts(self):
+        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Đăng nhập tài khoản", "Vui lòng chọn ít nhất một tài khoản để đăng nhập.")
+            return
+
+        num_accounts_to_login = len(selected_accounts)
+        window_positions = self.get_window_positions(num_accounts_to_login)
+
+        max_workers = min(5, num_accounts_to_login)
+        print(f"[DEBUG] Đang đăng nhập {num_accounts_to_login} tài khoản với {max_workers} trình duyệt đồng thời.")
+
+        self.progress_dialog = QProgressDialog("Đang đăng nhập tài khoản...", "Hủy", 0, num_accounts_to_login, self)
+        self.progress_dialog.setWindowTitle("Tiến trình đăng nhập")
+        self.progress_dialog.setWindowModality(Qt.WindowModal)
+        self.progress_dialog.canceled.connect(self.close_all_drivers)
+        self.progress_dialog.show()
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_account = {
+                executor.submit(self.login_instagram_and_get_info, account, window_positions[i]): account
+                for i, account in enumerate(selected_accounts)
+            }
+            completed_count = 0
+            for future in as_completed(future_to_account):
+                account = future_to_account[future]
+                try:
+                    result = future.result()
+                    print(f"[DEBUG] Kết quả từ login_instagram_and_get_info cho {account.get('username', 'N/A')}: {result} (Kiểu: {type(result)}) (Độ dài: {len(result) if isinstance(result, tuple) else 'N/A'})")
+                    
+                    if result is None:
+                        print(f"[ERROR] login_instagram_and_get_info trả về None cho {account.get('username', 'N/A')}.")
+                        login_status = "Lỗi không xác định (None)"
+                        proxy_status = "Lỗi không xác định"
+                    elif isinstance(result, tuple) and len(result) == 2:
+                        login_status, proxy_status = result
+                        account["status"] = login_status
+                        account["proxy_status"] = proxy_status
+                        if login_status == "Đã đăng nhập":
+                            self.save_accounts()
+                    else:
+                        print(f"[ERROR] Kết quả trả về không đúng định dạng cho {account.get('username', 'N/A')}. Expected (status, proxy_status), got: {result}")
+                        login_status = "Lỗi dữ liệu trả về"
+                        proxy_status = "Lỗi không xác định"
+
+                    account["status"] = login_status
+                    account["proxy_status"] = proxy_status
+
+                except Exception as e:
+                    account["status"] = f"Lỗi: {type(e).__name__}"
+                    account["proxy_status"] = "Lỗi không xác định"
+                    print(f"[ERROR] Tài khoản {account.get('username', 'N/A')} tạo ra một ngoại lệ: {e}")
+                    traceback.print_exc()
+                finally:
+                    completed_count += 1
+                    self.progress_dialog.setValue(completed_count)
+                    self.update_account_table()
+
+            self.progress_dialog.close()
+            self.update_account_table()
+
+    def login_instagram_and_get_info(self, account, window_position=None, max_retries=3, retry_delay=5):
+        driver = None
+        username = account.get("username")
+        password = account.get("password")
+        proxy = account.get("proxy")
+
+        def _perform_login():
+            nonlocal driver
+            nonlocal proxy
+            login_status = "Thất bại"
+            proxy_status = "Chưa kiểm tra"
+            try:
+                print(f"[DEBUG] Bắt đầu đăng nhập cho tài khoản {username}")
+                if proxy:
+                    current_proxy_info = next((p for p in self.proxies if f"{p.get('ip')}:{p.get('port')}:{p.get('user')}:{p.get('pass')}" == proxy), None)
+                    if current_proxy_info and current_proxy_info.get("status") == "Die":
+                        print(f"[WARN] Proxy {proxy} cho tài khoản {username} đang ở trạng thái Die, đang cố gắng gán proxy mới.")
+                        self._assign_new_proxy(account)
+                        proxy = account.get("proxy")
+                        if not proxy:
+                            proxy_status = "Không có proxy khả dụng"
+                            return "Lỗi Proxy", proxy_status
+                elif proxy == "":
+                    print(f"[DEBUG] Tài khoản {username} không sử dụng proxy.")
+                    proxy = None
+                elif proxy is None and self.proxies:
+                    print(f"[DEBUG] Tài khoản {username} chưa có proxy, đang cố gắng gán proxy mới từ danh sách.")
+                    self._assign_new_proxy(account)
+                    proxy = account.get("proxy")
+                    if not proxy:
+                        proxy_status = "Không có proxy khả dụng"
+                        return "Lỗi Proxy", proxy_status
+                elif proxy is None and not self.proxies:
+                    print(f"[DEBUG] Tài khoản {username} không sử dụng proxy (hoặc không có proxy nào được tải).")
+                    proxy = None
+
+                if proxy is None:
+                    proxy = None
+
+                driver = self.init_driver(proxy)
+
+                if window_position:
+                    x, y, width, height = window_position
+                    driver.set_window_rect(x, y, width, height)
+                    print(f"[DEBUG] Đã đặt vị trí cửa sổ cho {username} tại ({x}, {y}, {width}, {height})")
+                
+                driver.get("https://www.instagram.com/accounts/login/")
+                print(f"[DEBUG] Đã truy cập trang đăng nhập cho {username}")
+
+                try:
+                    accept_cookies_button = wait_for_element_clickable(driver, By.XPATH, "//button[text()='Cho phép tất cả cookie'] | //button[text()='Accept All'] | //button[text()='Allow all cookies']", timeout=5)
+                    if accept_cookies_button:
+                        print(f"[DEBUG] Đã chấp nhận cookie cho {username}.")
+                        random_delay(1, 2)
+                except Exception as e:
+                    print(f"[DEBUG] Không tìm thấy hoặc không thể click nút chấp nhận cookie cho {username}: {e}")
+                
+                username_input = wait_for_element(driver, By.NAME, "username", timeout=10)
+                if not username_input:
+                    raise Exception("Không thể tìm thấy ô nhập username")
+                print(f"[DEBUG] Trang đăng nhập đã tải xong cho {username}")
+                
+                password_input = wait_for_element(driver, By.NAME, "password", timeout=5)
+                if not password_input:
+                    raise Exception("Không thể tìm thấy ô nhập password")
+                
+                random_delay()
+                username_input.send_keys(username)
+                
+                random_delay()
+                password_input.send_keys(password)
+                
+                random_delay(1, 2)
+                login_button = wait_for_element(driver, By.CSS_SELECTOR, "button[type='submit']", timeout=10)
+                if not login_button:
+                    raise Exception("Không thể tìm thấy nút đăng nhập")
+                driver.execute_script("arguments[0].click();", login_button)
+                print(f"[DEBUG] Đã click nút đăng nhập cho {username} bằng JavaScript")
+
+                try:
+                    not_now_button_xpath = (
+                        "//button[text()='Not Now'] | "
+                        "//button[text()='Lúc khác'] | "
+                        "//button[text()='Später'] | "
+                        "//button[text()='Más tarde'] | "
+                        "//button[text()='Jetzt nicht'] | "
+                        "//button[contains(.,'Not Now')] | "
+                        "//button[contains(.,'Lúc khác')] | "
+                        "//div[text()='Lưu thông tin đăng nhập?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Lúc khác')] | "
+                        "//div[text()='Save your login info?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Not Now')]"
+                    )
+                    not_now_button = wait_for_element_clickable(driver, By.XPATH, not_now_button_xpath, timeout=7)
+                    if not_now_button:
+                        print(f"[DEBUG] Đã click nút 'Not Now' (lưu thông tin đăng nhập) cho {username}.")
+                        random_delay(1, 2)
+                except Exception as e:
+                    print(f"[DEBUG] Không tìm thấy hoặc không thể click nút 'Not Now' (lưu thông tin đăng nhập) cho {username}: {e}")
+
+                try:
+                    turn_on_notifications_not_now_xpath = (
+                        "//button[text()='Not Now'] | "
+                        "//button[text()='Lúc khác'] | "
+                        "//button[text()='Später'] | "
+                        "//button[text()='Ahora no'] | "
+                        "//button[contains(.,'Not Now')] | "
+                        "//button[contains(.,'Lúc khác')] | "
+                        "//div[text()='Turn on notifications?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Not Now')] | "
+                        "//div[text()='Bật thông báo?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Lúc khác')]"
+                    )
+                    turn_on_notifications_not_now_button = wait_for_element_clickable(driver, By.XPATH, turn_on_notifications_not_now_xpath, timeout=7)
+                    if turn_on_notifications_not_now_button:
+                        print(f"[DEBUG] Đã click nút 'Not Now' (thông báo) cho {username}.")
+                        random_delay(1, 2)
+                except Exception as e:
+                    print(f"[DEBUG] Không tìm thấy hoặc không thể click nút 'Not Now' (thông báo) cho {username}: {e}")
+
+                random_delay(2, 4)
+                
+                try:
+                    recaptcha_frame = WebDriverWait(driver, 5).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[src*='recaptcha']"))
+                    )
+                    print(f"[DEBUG] Phát hiện reCAPTCHA cho tài khoản {username}")
+
+                    if not self.captcha_handler.handle_recaptcha(driver, username):
+                        print("[ERROR] Không thể giải captcha")
+                        login_status = "Lỗi Captcha"
+                        proxy_status = "Lỗi không xác định"
+                        return login_status, proxy_status
+                    else:
+                        print(f"[DEBUG] Đã xử lý reCAPTCHA thành công cho tài khoản {username}.")
+                        if not wait_for_element(driver, By.NAME, "username"):
+                            print("[ERROR] Không thể tìm thấy ô nhập username sau khi giải captcha")
+                            login_status = "Không tìm thấy username input sau Captcha"
+                            proxy_status = "Lỗi không xác định"
+                            return login_status, proxy_status
+
+                except TimeoutException:
+                    print(f"[DEBUG] Không tìm thấy reCAPTCHA cho tài khoản {username}.")
+                except Exception as e:
+                    print(f"[ERROR] Lỗi không xác định khi xử lý reCAPTCHA cho {username}: {e}")
+                    login_status = "Lỗi không xác định Captcha"
+                    proxy_status = "Lỗi không xác định"
+                    return login_status, proxy_status
+
+                print(f"[DEBUG] Đang chờ xác nhận đăng nhập thành công cho {username}")
+                login_success_flag = False
+                try:
+                    WebDriverWait(driver, 20).until(
+                        EC.url_contains("instagram.com") and not EC.url_contains("accounts/login")
+                    )
+                    print(f"[DEBUG] URL đã chuyển hướng sau đăng nhập cho {username}.")
+                    if wait_for_element(driver, By.CSS_SELECTOR, "svg[aria-label='Home']", timeout=10):
+                        login_success_flag = True
+                        print(f"[DEBUG] Đã tìm thấy biểu tượng Home cho {username}.")
+                except TimeoutException:
+                    print(f"[WARN] Không thể xác nhận chuyển hướng URL hoặc biểu tượng Home cho {username} trong thời gian chờ.")
+
+                if not login_success_flag:
+                    print("[ERROR] Không thể xác nhận đăng nhập thành công")
+                    login_status = "Không xác nhận đăng nhập"
+                    proxy_status = "Lỗi không xác định"
+                    return login_status, proxy_status
+                print(f"[DEBUG] Đăng nhập thành công cho {username}")
+                login_status = "Đã đăng nhập"
+                proxy_status = "OK"
+
+                return login_status, proxy_status
+
+            except Exception as e:
+                print(f"[ERROR] Lỗi khi đăng nhập cho {username}: {e}")
+                login_status = "Đăng nhập thất bại"
+                proxy_status = "Chưa kiểm tra"
+                if "element click intercepted" in str(e).lower():
+                    login_status = "Lỗi click chặn"
+                elif "Không thể tìm thấy ô nhập username" in str(e):
+                    login_status = "Không tìm thấy username input"
+                elif "Không thể xác nhận đăng nhập thành công" in str(e):
+                    login_status = "Không xác nhận đăng nhập"
+                elif "ERR_PROXY_CONNECTION_FAILED" in str(e):
+                    proxy_status = "Die"
+                    login_status = "Lỗi Proxy"
+                else:
+                    login_status = "Lỗi không xác định"
+                return login_status, proxy_status
+            finally:
+                if driver:
+                    driver.quit()
+                    print(f"[DEBUG] Đã đóng trình duyệt cho {username}")
+        
+        return retry_operation(_perform_login, max_retries=max_retries, retry_delay=retry_delay)
+
+    def close_all_drivers(self):
+        for driver in self.active_drivers:
+            try:
+                driver.quit()
+            except Exception as e:
+                print(f"[WARN] Lỗi khi đóng trình duyệt: {e}")
+        self.active_drivers = []
+        print("[INFO] Đã đóng tất cả các trình duyệt.")
+
+    def import_accounts(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Nhập tài khoản", "", "JSON Files (*.json)")
+        if file_path:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    imported_accounts = json.load(f)
+                self.accounts.extend(imported_accounts)
+                self.save_accounts()
+                self.update_account_table()
+                QMessageBox.information(self, "Thành công", "Đã nhập tài khoản thành công!")
+            except Exception as e:
+                QMessageBox.critical(self, "Lỗi", f"Không thể nhập tài khoản: {str(e)}")
+
+    def open_folder_manager(self):
+        if not hasattr(self, 'folder_map'):
+            self.folder_map = self.load_folder_map()
+        from src.ui.folder_manager import FolderManagerDialog
+        dialog = FolderManagerDialog(self.accounts, self.folder_map, self)
+        dialog.folders_updated.connect(self.on_folders_updated)
+        dialog.exec()
+
+    def load_folder_list_to_combo(self):
+        self.category_combo.clear()
+        self.category_combo.addItem("Tất cả")
+        if not hasattr(self, 'folder_map') or not self.folder_map:
+            self.folder_map = self.load_folder_map()
+        
+        unique_folders = sorted(list(set(self.folder_map.values())))
+        for folder_name in unique_folders:
+            if folder_name != "Tổng":
+                self.category_combo.addItem(folder_name)
+        print(f"[DEBUG] Đã tải danh sách thư mục vào combobox: {list(self.folder_map.keys())}")
+
+
+    def on_folder_changed(self):
+        selected_folder = self.category_combo.currentText()
+        if selected_folder == "Tất cả":
+            self.update_account_table(self.accounts)
+        else:
+            filtered_accounts = [acc for acc in self.accounts if self.folder_map.get(acc.get("username"), "Tổng") == selected_folder]
+            self.update_account_table(filtered_accounts)
+        print(f"[DEBUG] Đã lọc tài khoản theo thư mục: {selected_folder}")
+
+    def on_folders_updated(self):
+        print("[DEBUG] Tín hiệu folders_updated đã được nhận trong AccountManagementTab.")
+        self.save_folder_map()
+        self.load_folder_list_to_combo()
+        self.update_account_table()
+
+
+    def show_context_menu(self, pos):
+        print(f"[DEBUG] show_context_menu được gọi tại vị trí: {pos}")
+        menu = AccountContextMenu(self)
+        menu.exec(self.account_table.viewport().mapToGlobal(pos))
+
+    def on_table_item_double_clicked(self, index):
+        selected_account = self.accounts[index.row()]
+        QMessageBox.information(self, "Chi tiết tài khoản", 
+                                f"Tên đăng nhập: {selected_account.get('username', 'N/A')}\n"
+                                f"Mật khẩu: {selected_account.get('password', 'N/A')}\n"
+                                f"Trạng thái: {selected_account.get('status', 'N/A')}\n"
+                                f"Proxy: {selected_account.get('proxy', 'N/A')}\n"
+                                f"Trạng thái Proxy: {selected_account.get('proxy_status', 'N/A')}\n"
+                                f"Follower: {selected_account.get('followers', 'N/A')}\n"
+                                f"Following: {selected_account.get('following', 'N/A')}\n"
+                                f"Hành động cuối: {selected_account.get('last_action', 'N/A')}")
+
+    def toggle_all_accounts_selection(self, checked):
+        for row_idx in range(self.account_table.rowCount()):
+            item = self.account_table.item(row_idx, 0)
+            if item:
+                self.account_table.model().setData(item.index(), checked, CheckboxDelegate.CheckboxStateRole)
+                if row_idx < len(self.accounts):
+                    self.accounts[row_idx]["selected"] = checked
+                self.save_accounts()
+
+    def load_proxies(self):
+        proxies = []
+        proxies_file = "proxies.txt"
+        if os.path.exists(proxies_file):
+            with open(proxies_file, 'r', encoding='utf-8-sig') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        parts = line.split(':')
+                        if len(parts) == 4:
+                            ip, port, user, password = parts
+                            proxies.append({"ip": ip, "port": port, "user": user, "pass": password, "status": "Chưa kiểm tra", "is_in_use": False, "usage_count": 0})
+                        elif len(parts) == 2:
+                            ip, port = parts
+                            proxies.append({"ip": ip, "port": port, "user": "", "pass": "", "status": "Chưa kiểm tra", "is_in_use": False, "usage_count": 0})
+                        else:
+                            print(f"[WARN] Định dạng proxy không hợp lệ, bỏ qua: {line}")
+        print(f"[DEBUG] Đã tải {len(proxies)} proxy.")
+        return proxies
+
+    def load_folder_map(self):
+        if os.path.exists(self.folder_map_file):
+            try:
+                with open(self.folder_map_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                print("[ERROR] Lỗi đọc file folder_map.json. File có thể bị hỏng. Tạo lại map trống.")
+                return {}
+        return {}
+
+    def _assign_new_proxy(self, account):
+        current_proxy = account.get("proxy", "")
+        username = account.get("username", "")
+        print(f"[DEBUG] Đang tìm proxy mới cho tài khoản {username}. Proxy hiện tại: {current_proxy}")
+
+        new_proxy_info = None
+
+        for proxy_info in self.proxies:
+            if (proxy_info.get("status") == "OK" or proxy_info.get("status") == "Chưa kiểm tra") and \
+               not proxy_info.get("is_in_use", False) and \
+               proxy_info.get("usage_count", 0) < self.PROXY_USAGE_THRESHOLD:
+                new_proxy_info = proxy_info
+                print(f"[DEBUG] Đã tìm thấy proxy ưu tiên (thấp sử dụng): {proxy_info.get('ip')}. Usage: {proxy_info.get('usage_count')}")
+                break
+        
+        if not new_proxy_info:
+            print("[DEBUG] Không tìm thấy proxy ưu tiên, đang tìm proxy khả dụng bất kỳ.")
+            for proxy_info in self.proxies:
+                if (proxy_info.get("status") == "OK" or proxy_info.get("status") == "Chưa kiểm tra") and \
+                   not proxy_info.get("is_in_use", False):
+                    new_proxy_info = proxy_info
+                    print(f"[DEBUG] Đã tìm thấy proxy khả dụng: {proxy_info.get('ip')}. Usage: {proxy_info.get('usage_count')}")
+                    break
+        
+        if new_proxy_info:
+            account["proxy"] = f"{new_proxy_info.get('ip')}:{new_proxy_info.get('port')}:{new_proxy_info.get('user')}:{new_proxy_info.get('pass')}"
+            new_proxy_info["is_in_use"] = True
+            new_proxy_info["status"] = "Đang sử dụng"
+            account["proxy_status"] = "Đang chuyển đổi"
+            print(f"[INFO] Đã gán proxy mới {account['proxy']} cho tài khoản {username}.")
+        else:
+            account["proxy_status"] = "Không có proxy khả dụng"
+            print(f"[WARN] Không tìm thấy proxy khả dụng nào cho tài khoản {username}.")
+        
+        self.save_accounts()
+
+    def _perform_warmup(self, driver, delay_multiplier):
+        driver.get("https://www.instagram.com")
+        time.sleep(2 * delay_multiplier)
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2 * delay_multiplier)
+        try:
+            post_links = driver.find_elements(By.XPATH, "//a[contains(@href, '/p/')]") 
+            if post_links:
+                random_post = random.choice(post_links)
+                random_post.click()
+                time.sleep(5 * delay_multiplier)
+                driver.back()
+                time.sleep(2 * delay_multiplier)
+        except Exception as e:
+            print(f"[WARN] Lỗi khi thực hiện warm-up: {e}")
+        print("[DEBUG] Đã hoàn tất phiên warm-up.")
+
+    def get_info_selected_accounts(self):
+        QMessageBox.information(self, "Chức năng", "Lấy thông tin tài khoản đang được phát triển.")
+        print("[DEBUG] Chức năng get_info_selected_accounts được gọi.")
+
+    def open_browser_for_selected(self):
+        QMessageBox.information(self, "Chức năng", "Mở trình duyệt đang được phát triển.")
+        print("[DEBUG] Chức năng open_browser_for_selected được gọi.")
+
+    def logout_selected_accounts(self):
+        QMessageBox.information(self, "Chức năng", "Đăng xuất tài khoản đang được phát triển.")
+        print("[DEBUG] Chức năng logout_selected_accounts được gọi.")
+
+    def delete_selected_accounts(self):
+        QMessageBox.information(self, "Chức năng", "Xóa tài khoản đang được phát triển.")
+        print("[DEBUG] Chức năng delete_selected_accounts được gọi.")
+
+    def select_selected_accounts(self):
+        selected_rows = self.account_table.selectionModel().selectedRows()
+        for index in selected_rows:
+            row = index.row()
+            if row < len(self.accounts):
+                item_checkbox = self.account_table.item(row, 0)
+                if item_checkbox and item_checkbox.checkState() == Qt.Unchecked:
+                    item_checkbox.setCheckState(Qt.Checked)
+                    self.accounts[row]["selected"] = True
+        self.save_accounts()
+        QMessageBox.information(self, "Chọn tài khoản", f"Đã chọn {len(selected_rows)} tài khoản được bôi đen.")
+        print(f"[DEBUG] Đã chọn {len(selected_rows)} tài khoản được bôi đen.")
+
+    def deselect_selected_accounts(self):
+        selected_rows = self.account_table.selectionModel().selectedRows()
+        deselected_count = 0
+        for index in selected_rows:
+            row = index.row()
+            if row < len(self.accounts):
+                item_checkbox = self.account_table.item(row, 0)
+                if item_checkbox and item_checkbox.checkState() == Qt.Checked:
+                    item_checkbox.setCheckState(Qt.Unchecked)
+                    self.accounts[row]["selected"] = False
+                    deselected_count += 1
+                self.save_accounts()
+        QMessageBox.information(self, "Bỏ chọn tài khoản", f"Đã bỏ chọn {deselected_count} tài khoản được bôi đen.")
+        print(f"[DEBUG] Đã bỏ chọn {deselected_count} tài khoản được bôi đen.")
+    
+    def deselect_all_accounts(self):
+        deselected_count = 0
+        for row_idx in range(self.account_table.rowCount()):
+            item = self.account_table.item(row_idx, 0)
+            if item and item.checkState() == Qt.Checked:
+                self.account_table.model().setData(item.index(), False, CheckboxDelegate.CheckboxStateRole)
+                if row_idx < len(self.accounts):
+                    self.accounts[row_idx]["selected"] = False
+                deselected_count += 1
+        self.save_accounts()
+        QMessageBox.information(self, "Bỏ chọn tất cả", f"Đã bỏ chọn tất cả {deselected_count} tài khoản.")
+        print(f"[DEBUG] Đã bỏ chọn tất cả {deselected_count} tài khoản.")
+
+    def add_selected_to_folder(self, folder_name):
+        QMessageBox.information(self, "Chức năng", f"Thêm vào thư mục \'{folder_name}\' đang được phát triển.")
+        print(f"[DEBUG] Chức năng add_selected_to_folder được gọi với folder: {folder_name}")
+
+    def remove_selected_from_folder(self, folder_name):
+        QMessageBox.information(self, "Chức năng", f"Xóa khỏi thư mục \'{folder_name}\' đang được phát triển.")
+        print(f"[DEBUG] Chức năng remove_selected_from_folder được gọi với folder: {folder_name}")
+
+    def delete_selected_folder(self):
+        QMessageBox.information(self, "Chức năng", "Xóa thư mục đang được phát triển.")
+        print("[DEBUG] Chức năng delete_selected_folder được gọi.")
+
+    def set_account_status_selected(self, status):
+        QMessageBox.information(self, "Chức năng", f"Chuyển trạng thái tài khoản về \'{status}\' đang được phát triển.")
+        print(f"[DEBUG] Chức năng set_account_status_selected được gọi với status: {status}")
+
+    def update_selected_proxy_info(self):
+        QMessageBox.information(self, "Chức năng", "Cập nhật thông tin Proxy đang được phát triển.")
+        print("[DEBUG] Chức năng update_selected_proxy_info được gọi.")
+
+    def open_selected_user_data_folder(self):
+        QMessageBox.information(self, "Chức năng", "Mở thư mục UserData đang được phát triển.")
+        print("[DEBUG] Chức năng open_selected_user_data_folder được gọi.")
+
+    def export_accounts(self):
+        file_path, _ = QFileDialog.getSaveFileName(self, "Xuất tài khoản", "", "JSON Files (*.json)")
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.accounts, f, ensure_ascii=False, indent=4)
+                QMessageBox.information(self, "Thành công", "Đã xuất tài khoản thành công!")
+            except Exception as e:
+                QMessageBox.critical(self, "Lỗi", f"Không thể xuất tài khoản: {str(e)}")
+
+    def toggle_stealth_mode(self):
+        self.stealth_mode_enabled = not self.stealth_mode_enabled
+        status = "bật" if self.stealth_mode_enabled else "tắt"
+        QMessageBox.information(self, "Thông báo", f"Đã {status} chế độ ẩn danh!")
+
+    def delete_all_accounts(self):
+        reply = QMessageBox.question(self, "Xác nhận", "Bạn có chắc chắn muốn xóa tất cả tài khoản?",
+                                   QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.accounts.clear()
+            self.save_accounts()
+            self.update_account_table()
+            QMessageBox.information(self, "Thành công", "Đã xóa tất cả tài khoản!")
