@@ -66,18 +66,14 @@ class MainWindow(QMainWindow):
         print("[DEBUG] MainWindow: Bắt đầu khởi tạo.")
         self.setWindowTitle("Instagram Automation Tool")
         self.setGeometry(100, 100, 1200, 800)
-
-        self.pixel_ruler = None # Khởi tạo thước kẻ pixel
-
-        self.menu_bar = self.menuBar()
-        self.file_menu = self.menu_bar.addMenu("File")
-        self.edit_menu = self.menu_bar.addMenu("Edit")
-        self.view_menu = self.menu_bar.addMenu("View")
-        self.help_menu = self.menu_bar.addMenu("Help")
-
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         layout = QVBoxLayout(main_widget)
+
+        # Spacer/logo area 100px ở trên cùng
+        spacer_logo = QWidget()
+        spacer_logo.setFixedHeight(100)
+        layout.addWidget(spacer_logo)
 
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)

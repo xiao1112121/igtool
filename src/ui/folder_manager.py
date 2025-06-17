@@ -163,6 +163,12 @@ class FolderManagerDialog(QDialog):
 
         main_layout.addLayout(content_layout, 8) # Chiếm 80% chiều cao cửa sổ
 
+        # Thêm label thống kê ở dưới cùng
+        self.stats_label = QLabel()
+        self.stats_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.stats_label.setStyleSheet("font-size: 15px; font-weight: bold; padding: 8px 12px;")
+        main_layout.addWidget(self.stats_label)
+
         # Style header xanh đậm, chữ trắng, in đậm cho cả hai bảng
         header_style = (
             "QHeaderView::section {"
@@ -185,6 +191,7 @@ class FolderManagerDialog(QDialog):
         self.account_table.verticalHeader().setVisible(False)
 
         self.load_folders_on_startup()
+        self.update_stats()  # Cập nhật thống kê khi khởi tạo
 
     def update_folder_table(self):
         # Cập nhật lại bảng danh sách thư mục dựa trên self.folders
@@ -226,6 +233,7 @@ class FolderManagerDialog(QDialog):
             self.folders = self.load_folders()
             self.update_folder_table()
             self.update_account_table()
+
     def edit_folder(self):
         selected_rows = self.folder_table.selectionModel().selectedRows()
         if not selected_rows:
@@ -349,6 +357,7 @@ class FolderManagerDialog(QDialog):
             filtered_accounts.append(account)
 
         self.update_account_table(filtered_accounts)
+        self.update_stats(filtered_accounts)
 
     def handle_account_table_item_changed(self, item: QTableWidgetItem):
         if item.column() == 0: # Checkbox column
@@ -359,6 +368,7 @@ class FolderManagerDialog(QDialog):
                 if account.get("username") == username:
                     account["selected_in_dialog"] = str(item.checkState() == Qt.CheckState.Checked)
                     break
+        self.update_stats()  # Cập nhật lại thống kê khi tick chọn
 
     def assign_selected_accounts_to_folder(self):
         selected_folder = self.selected_folder_in_table
@@ -422,6 +432,7 @@ class FolderManagerDialog(QDialog):
             self.account_table.setItem(row_idx, 2, QTableWidgetItem(current_folder))
 
         self.account_table.blockSignals(False) # Unblock signals
+        self.update_stats(accounts_to_display)
 
     def transfer_accounts_to_folder(self):
         # Implement the logic to transfer accounts to a folder
@@ -469,3 +480,30 @@ class FolderManagerDialog(QDialog):
             with open(self.FOLDER_MAP_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         return None 
+
+    def update_stats(self, accounts_to_display: Optional[List[Dict[str, Union[str, bool]]]] = None):
+        # Nếu không truyền vào thì lấy toàn bộ self.accounts (sau khi lọc)
+        if accounts_to_display is None:
+            accounts_to_display = self.accounts
+        total = len(accounts_to_display)
+        live = 0
+        die = 0
+        selected = 0
+        for acc in accounts_to_display:
+            status = str(acc.get("status", "")).lower()
+            if status == "live":
+                live += 1
+            elif status == "die":
+                die += 1
+            if str(acc.get("selected_in_dialog", "False")) == "True":
+                selected += 1
+        not_selected = total - selected
+        # Tạo text với màu sắc
+        stats_html = (
+            f'<span style="color:black">Tổng: <b>{total}</b></span> | '
+            f'<span style="color:green">Live: <b>{live}</b></span> | '
+            f'<span style="color:red">Die: <b>{die}</b></span> | '
+            f'<span style="color:#1976D2">Đã chọn: <b>{selected}</b></span> | '
+            f'<span style="color:gray">Chưa chọn: <b>{not_selected}</b></span>'
+        )
+        self.stats_label.setText(stats_html)

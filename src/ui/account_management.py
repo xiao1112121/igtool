@@ -365,24 +365,6 @@ class AccountManagementTab(QWidget):
         btn_load.clicked.connect(self.load_accounts)
         toolbar_layout.addWidget(btn_load)
 
-        # Khu vực thống kê
-        stats_layout = QHBoxLayout()
-        stats_layout.setSpacing(8)
-
-        self.total_accounts_label = QLabel("Tổng: 0")
-        self.total_accounts_label.setStyleSheet("color: #333333; font-weight: semibold; font-size: 10.5pt;")
-        stats_layout.addWidget(self.total_accounts_label)
-
-        self.live_accounts_label = QLabel("Live: 0")
-        self.live_accounts_label.setStyleSheet("color: #4CAF50; font-weight: semibold; font-size: 10.5pt;")
-        stats_layout.addWidget(self.live_accounts_label)
-
-        self.die_accounts_label = QLabel("Die: 0")
-        self.die_accounts_label.setStyleSheet("color: #D32F2F; font-weight: semibold; font-size: 10.5pt;")
-        stats_layout.addWidget(self.die_accounts_label)
-
-        toolbar_layout.addLayout(stats_layout)
-
         # Search bar
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Tìm kiếm tài khoản...")
@@ -462,6 +444,11 @@ class AccountManagementTab(QWidget):
         self.account_table.itemDoubleClicked.connect(self.on_table_item_double_clicked)  # Connect double click signal
 
         right_layout.addWidget(self.account_table)
+        # Thêm label thống kê dưới bảng tài khoản (tách riêng)
+        self.stats_label = QLabel()
+        self.stats_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.stats_label.setStyleSheet("font-size: 15px; font-weight: bold; padding: 8px 12px;")
+        right_layout.addWidget(self.stats_label)
         main_layout.addWidget(right_panel, stretch=85)
 
         # Kết nối tín hiệu toggleAllCheckboxes từ CheckableHeaderView
@@ -584,6 +571,32 @@ class AccountManagementTab(QWidget):
             last_action_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.account_table.setItem(row_idx, 9, last_action_item)
         self.account_table.blockSignals(False)  # Unblock signals
+        self.update_stats(accounts_to_display)
+
+    def update_stats(self, accounts_to_display=None):
+        if accounts_to_display is None:
+            accounts_to_display = self.accounts
+        total = len(accounts_to_display)
+        live = 0
+        die = 0
+        selected = 0
+        for acc in accounts_to_display:
+            status = str(acc.get("status", "")).lower()
+            if status == "live":
+                live += 1
+            elif status == "die":
+                die += 1
+            if acc.get("selected", False):
+                selected += 1
+        not_selected = total - selected
+        stats_html = (
+            f'<span style="color:black">Tổng: <b>{total}</b></span> | '
+            f'<span style="color:green">Live: <b>{live}</b></span> | '
+            f'<span style="color:red">Die: <b>{die}</b></span> | '
+            f'<span style="color:#1976D2">Đã chọn: <b>{selected}</b></span> | '
+            f'<span style="color:gray">Chưa chọn: <b>{not_selected}</b></span>'
+        )
+        self.stats_label.setText(stats_html)
 
     def on_checkbox_clicked(self, row, new_state):
         # Hàm này được kết nối từ delegate để xử lý khi trạng thái checkbox thay đổi
@@ -591,6 +604,7 @@ class AccountManagementTab(QWidget):
             self.accounts[row]["selected"] = new_state
             self.save_accounts()
             print(f"[DEBUG] Checkbox tại hàng {row} được chuyển thành: {new_state}. Tài khoản: {self.accounts[row]['username']}")
+        self.update_stats()
 
     def handle_item_changed(self, item):
         # Kiểm tra nếu tín hiệu bị block, bỏ qua
@@ -614,6 +628,7 @@ class AccountManagementTab(QWidget):
             return  # Không xử lý các cột khác
 
         self.save_accounts()
+        self.update_stats()
 
     def filter_accounts(self, text):
         filtered_accounts = [
@@ -630,6 +645,7 @@ class AccountManagementTab(QWidget):
             filtered_accounts = [acc for acc in filtered_accounts if self.folder_map.get(acc.get("username"), "Tổng") == folder_name]
 
         self.update_account_table(filtered_accounts)
+        self.update_stats(filtered_accounts)
 
     def get_window_positions(self, num_windows):
         screen = QGuiApplication.primaryScreen().geometry()
@@ -1097,7 +1113,7 @@ class AccountManagementTab(QWidget):
             if k != "_FOLDER_SET_" and isinstance(v, str) and v != "Tổng"
         )))
         for folder_name in unique_folders:
-            self.category_combo.addItem(folder_name)
+                self.category_combo.addItem(folder_name)
         print(f"[DEBUG] Đã tải danh sách thư mục vào combobox: {list(self.folder_map.keys())}")
 
     def on_folder_changed(self):
@@ -1149,6 +1165,7 @@ class AccountManagementTab(QWidget):
                             acc["selected"] = checked
         self.save_accounts()
         self.update_account_table()
+        self.update_stats()
 
     def load_proxies(self):
         proxies = []
