@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QSize, QTimer, QThread, Signal, QModelIndex, QRec
 from PySide6.QtGui import QIcon, QFont, QPixmap, QColor, QPalette, QPainter, QPen
 import random
 from src.ui.context_menus import DataScannerContextMenu
+from src.ui.account_management import CheckboxDelegate
 import os, json
 
 class DataScannerTab(QWidget):
@@ -142,6 +143,9 @@ class DataScannerTab(QWidget):
         self.account_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.account_table.verticalHeader().setDefaultSectionSize(32)
         self.account_table.horizontalHeader().setFixedHeight(40)
+        # Đặt delegate checkbox giống tab Quản lý Tài khoản
+        self.checkbox_delegate = CheckboxDelegate(self)
+        self.account_table.setItemDelegateForColumn(0, self.checkbox_delegate)
         top_layout.addWidget(self.account_table)
         # Bảng dưới
         bottom_group = QGroupBox("Kết quả quét")
@@ -285,12 +289,14 @@ class DataScannerTab(QWidget):
             QMessageBox.information(self, "Đã nhập danh sách", f"Đã nhập {len(data)} username/link.")
 
     def load_accounts(self):
-        # Nạp toàn bộ tài khoản từ accounts.json
+        # Nạp toàn bộ tài khoản từ accounts.json, chỉ lấy tài khoản đã đăng nhập
         accounts_file = os.path.join("accounts.json")
         self.accounts = []
         if os.path.exists(accounts_file):
             with open(accounts_file, "r", encoding="utf-8") as f:
-                self.accounts = json.load(f)
+                all_accounts = json.load(f)
+            # Chỉ lấy tài khoản đã đăng nhập
+            self.accounts = [acc for acc in all_accounts if acc.get("status") in ["Đã đăng nhập", "Live"]]
         self.on_folder_changed()  # Hiển thị theo thư mục đang chọn
 
     def update_account_table(self, accounts_to_display=None):

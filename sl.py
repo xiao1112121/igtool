@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 import subprocess
+import os
 
 def git_push():
     msg = simpledialog.askstring("Thông báo", "Nhập nội dung commit:")
@@ -8,14 +9,14 @@ def git_push():
         messagebox.showwarning("Chưa nhập nội dung", "Vui lòng nhập nội dung commit!")
         return
     try:
+        # Đảm bảo luôn thực thi ở thư mục chứa file .git
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
         subprocess.check_call("git add .", shell=True)
-
-        # Kiểm tra có thay đổi mới không (trước khi commit)
-        status = subprocess.check_output("git status --porcelain", shell=True).decode().strip()
-        if not status:
-            messagebox.showinfo("Không có thay đổi", "Không có thay đổi mới để backup lên GitHub!")
+        # Kiểm tra có file thay đổi không trước khi commit
+        changed = subprocess.check_output("git status --porcelain", shell=True).decode().strip()
+        if not changed:
+            messagebox.showinfo("Thông báo", "Không có file nào thay đổi để commit.")
             return
-
         subprocess.check_call(f'git commit -m "{msg}"', shell=True)
         subprocess.check_call("git push", shell=True)
         messagebox.showinfo("Thành công", "Đã backup code lên GitHub thành công!")
@@ -27,8 +28,9 @@ def git_restore():
     if not ok:
         return
     try:
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
         subprocess.check_call("git fetch origin", shell=True)
-        subprocess.check_call("git reset --hard origin/master", shell=True)  # đổi "origin/main" thành "origin/master" nếu nhánh là master
+        subprocess.check_call("git reset --hard origin/main", shell=True)
         messagebox.showinfo("Thành công", "Đã khôi phục code về bản trên GitHub!")
     except subprocess.CalledProcessError as e:
         messagebox.showerror("Lỗi", f"Lệnh git bị lỗi: {e}")

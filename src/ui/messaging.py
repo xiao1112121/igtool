@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen
 from src.ui.context_menus import MessagingContextMenu
+from src.ui.account_management import CheckboxDelegate
 
 class MessagingTab(QWidget):
     def __init__(self):
@@ -245,6 +246,9 @@ class MessagingTab(QWidget):
         self.account_table.verticalHeader().setVisible(False)
         header2.setStretchLastSection(True)
         self.account_table.horizontalHeader().setFixedHeight(40)
+        # Đặt delegate checkbox giống tab Quản lý Tài khoản
+        self.checkbox_delegate = CheckboxDelegate(self)
+        self.account_table.setItemDelegateForColumn(0, self.checkbox_delegate)
         
         # Footer thống kê
         stats_label = QLabel("Thành công: 0 | Thất bại: 0 | Chưa gửi: 0")
@@ -439,13 +443,15 @@ class MessagingTab(QWidget):
         self.load_folder_list_to_combo()
 
     def load_accounts(self):
-        # Nạp toàn bộ tài khoản từ accounts.json
+        # Nạp toàn bộ tài khoản từ accounts.json, chỉ lấy tài khoản đã đăng nhập
         import os, json
         accounts_file = os.path.join("accounts.json")
         self.accounts = []
         if os.path.exists(accounts_file):
             with open(accounts_file, "r", encoding="utf-8") as f:
-                self.accounts = json.load(f)
+                all_accounts = json.load(f)
+            # Chỉ lấy tài khoản đã đăng nhập
+            self.accounts = [acc for acc in all_accounts if acc.get("status") in ["Đã đăng nhập", "Live"]]
         self.on_folder_changed()  # Hiển thị theo thư mục đang chọn
 
     def update_account_table(self, accounts_to_display=None):
@@ -453,11 +459,20 @@ class MessagingTab(QWidget):
             accounts_to_display = self.accounts
         self.account_table.setRowCount(len(accounts_to_display))
         for i, acc in enumerate(accounts_to_display):
-            self.account_table.setItem(i, 0, QTableWidgetItem(str(i+1)))
-            self.account_table.setItem(i, 1, QTableWidgetItem(acc.get("username", "")))
-            self.account_table.setItem(i, 2, QTableWidgetItem(acc.get("status", "")))
-            self.account_table.setItem(i, 3, QTableWidgetItem(str(acc.get("success", ""))))
-            self.account_table.setItem(i, 4, QTableWidgetItem(acc.get("state", "")))
+            # Cột 0: Checkbox (nếu cần, hoặc để trống)
+            chk = QTableWidgetItem()
+            chk.setCheckState(Qt.Checked if acc.get('checked', False) else Qt.Unchecked)
+            self.account_table.setItem(i, 0, chk)
+            # Cột 1: STT
+            self.account_table.setItem(i, 1, QTableWidgetItem(str(i+1)))
+            # Cột 2: Tên người dùng
+            self.account_table.setItem(i, 2, QTableWidgetItem(acc.get("username", "")))
+            # Cột 3: Trạng thái
+            self.account_table.setItem(i, 3, QTableWidgetItem(acc.get("status", "")))
+            # Cột 4: Thành công
+            self.account_table.setItem(i, 4, QTableWidgetItem(str(acc.get("success", ""))))
+            # Cột 5: Tình trạng
+            self.account_table.setItem(i, 5, QTableWidgetItem(acc.get("state", "")))
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
