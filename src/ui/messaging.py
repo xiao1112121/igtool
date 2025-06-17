@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRec
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QAction
 from src.ui.context_menus import MessagingContextMenu
 from src.ui.account_management import CheckboxDelegate
+import json
 
 class MessagingTab(QWidget):
     def __init__(self):
@@ -21,6 +22,7 @@ class MessagingTab(QWidget):
         self.last_username_file_error = None
         self.accounts = []  # Lưu toàn bộ tài khoản
         self.init_ui()
+        self.load_message_templates()
         
     def init_ui(self):
         layout = QHBoxLayout(self)
@@ -151,10 +153,12 @@ class MessagingTab(QWidget):
         self.username_radio.setStyleSheet(radio_style)
         self.follower_radio.setStyleSheet(radio_style)
         self.following_radio.setStyleSheet(radio_style)
-        # Đổi nền nút nhập data thành xanh dương
+        # Đổi nền nút nhập data thành xanh dương và chỉnh kích thước
         self.btn_choose_file.setStyleSheet("QPushButton { background-color: #1976D2; color: white; border-radius: 4px; } QPushButton::hover { background-color: #1565c0; }")
-        # Xử lý chọn file username.txt
-        self.btn_choose_file.clicked.connect(self.choose_username_file)
+        self.btn_choose_file.setMinimumSize(70, 35)
+        self.btn_choose_file.setMaximumSize(90, 35)
+        self.btn_choose_file.clicked.disconnect()
+        self.btn_choose_file.clicked.connect(self.open_or_create_data_file)
         # Xử lý lọc trùng
         self.no_duplicate.stateChanged.connect(self.filter_duplicate_usernames)
         left_layout.addWidget(list_group)
@@ -301,6 +305,19 @@ class MessagingTab(QWidget):
         self.account_table.customContextMenuRequested.connect(self.show_context_menu)
         self.account_table.setSelectionBehavior(QAbstractItemView.SelectRows)
 
+    def open_or_create_data_file(self):
+        import os
+        import subprocess
+        data_file = "usernames_data.txt"
+        if not os.path.exists(data_file):
+            with open(data_file, "w", encoding="utf-8") as f:
+                f.write("")
+        # Mở file bằng notepad (Windows)
+        try:
+            subprocess.Popen(["notepad.exe", data_file])
+        except Exception as e:
+            QMessageBox.warning(self, "Lỗi", f"Không thể mở file: {e}")
+
     def choose_username_file(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
         file_path, _ = QFileDialog.getOpenFileName(self, "Chọn file username.txt", "", "Text Files (*.txt)")
@@ -373,6 +390,7 @@ class MessagingTab(QWidget):
         # Reset input
         content.clear()
         self.selected_media_path = None
+        self.save_message_templates()
 
     def closeEvent(self, event):
         for driver in self.active_drivers:
@@ -595,6 +613,7 @@ class MessagingTab(QWidget):
         row = index.row()
         if action == action_delete:
             self.message_table.removeRow(row)
+            self.save_message_templates()
         elif action == action_edit:
             old_content = self.message_table.item(row, 0).text() if self.message_table.item(row, 0) else ""
             old_link = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
@@ -606,6 +625,32 @@ class MessagingTab(QWidget):
                 return
             self.message_table.setItem(row, 0, QTableWidgetItem(new_content))
             self.message_table.setItem(row, 1, QTableWidgetItem(new_link))
+            self.save_message_templates()
+
+    def load_message_templates(self):
+        import os
+        file_path = "message_templates.json"
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                try:
+                    templates = json.load(f)
+                except Exception:
+                    templates = []
+            self.message_table.setRowCount(0)
+            for tpl in templates:
+                row = self.message_table.rowCount()
+                self.message_table.insertRow(row)
+                self.message_table.setItem(row, 0, QTableWidgetItem(tpl.get("content", "")))
+                self.message_table.setItem(row, 1, QTableWidgetItem(tpl.get("media", "")))
+
+    def save_message_templates(self):
+        templates = []
+        for row in range(self.message_table.rowCount()):
+            content = self.message_table.item(row, 0).text() if self.message_table.item(row, 0) else ""
+            media = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
+            templates.append({"content": content, "media": media})
+        with open("message_templates.json", "w", encoding="utf-8") as f:
+            json.dump(templates, f, ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
