@@ -126,9 +126,79 @@ class MessagingContextMenu(QMenu):
     def setup_menu(self):
         # Menu cho Messaging Tab
         self.add_action("Gửi tin nhắn", self.parent.send_message)
+        self.addSeparator()
+        self.add_action("Chọn", self.select_rows)
+        self.add_action("Chọn tất cả", self.select_all)
+        self.add_action("Bỏ chọn", self.deselect_rows)
+        self.add_action("Bỏ chọn tất cả", self.deselect_all)
+        self.addSeparator()
+        self.add_action("Copy thông tin", self.copy_info)
+        self.add_action("Xem log gửi chi tiết", self.show_log)
+        self.addSeparator()
         self.add_action("Tải danh sách người nhận", self.parent.load_recipients)
         self.add_action("Xuất danh sách người nhận", self.parent.export_recipients)
         self.add_action("Xóa danh sách người nhận", self.parent.clear_recipients)
+
+    def get_selected_rows(self, context_row=None):
+        selection = self.parent.account_table.selectionModel().selectedRows()
+        if selection:
+            return [idx.row() for idx in selection]
+        elif context_row is not None:
+            return [context_row]
+        return []
+
+    def select_rows(self):
+        rows = self.get_selected_rows(getattr(self, 'context_row', None))
+        for row in rows:
+            if 0 <= row < len(self.parent.accounts):
+                self.parent.accounts[row]["selected"] = True
+        self.parent.update_account_table()
+
+    def select_all(self):
+        for acc in self.parent.accounts:
+            acc["selected"] = True
+        self.parent.update_account_table()
+
+    def deselect_rows(self):
+        rows = self.get_selected_rows(getattr(self, 'context_row', None))
+        for row in rows:
+            if 0 <= row < len(self.parent.accounts):
+                self.parent.accounts[row]["selected"] = False
+        self.parent.update_account_table()
+
+    def deselect_all(self):
+        for acc in self.parent.accounts:
+            acc["selected"] = False
+        self.parent.update_account_table()
+
+    def copy_info(self):
+        rows = self.get_selected_rows(getattr(self, 'context_row', None))
+        if not rows:
+            return
+        lines = []
+        for row in rows:
+            acc = self.parent.accounts[row]
+            stt = str(row+1)
+            username = acc.get("username", "")
+            status = acc.get("status", "")
+            success = str(acc.get("success", ""))
+            state = acc.get("state", "")
+            lines.append(f"{stt}\t{username}\t{status}\t{success}\t{state}")
+        QApplication.clipboard().setText("\n".join(lines))
+
+    def show_log(self):
+        rows = self.get_selected_rows(getattr(self, 'context_row', None))
+        if not rows:
+            return
+        acc = self.parent.accounts[rows[0]]
+        logs = acc.get("send_log", [])
+        if not logs:
+            QMessageBox.information(self.parent, "Log gửi chi tiết", "Không có dữ liệu lịch sử gửi.")
+            return
+        msg = ""
+        for log in logs:
+            msg += f"Thời gian: {log.get('time', '')}\nKết quả: {log.get('result', '')}\nNội dung/Lỗi: {log.get('content', '')}\n---\n"
+        QMessageBox.information(self.parent, f"Log gửi: {acc.get('username', '')}", msg)
 
     def add_action(self, text, slot):
         action = QAction(text, self)

@@ -464,25 +464,86 @@ class MessagingTab(QWidget):
             accounts_to_display = self.accounts
         self.account_table.setRowCount(len(accounts_to_display))
         for i, acc in enumerate(accounts_to_display):
-            # Cột 0: chỉ dùng delegate, không tạo QTableWidgetItem checkable nữa
             item = QTableWidgetItem()
             item.setData(CheckboxDelegate.CheckboxStateRole, acc.get("selected", False))
             self.account_table.setItem(i, 0, item)
-            # Cột 1: STT
             self.account_table.setItem(i, 1, QTableWidgetItem(str(i+1)))
-            # Cột 2: Tên người dùng
             self.account_table.setItem(i, 2, QTableWidgetItem(acc.get("username", "")))
-            # Cột 3: Trạng thái
             self.account_table.setItem(i, 3, QTableWidgetItem(acc.get("status", "")))
-            # Cột 4: Thành công
             self.account_table.setItem(i, 4, QTableWidgetItem(str(acc.get("success", ""))))
-            # Cột 5: Tình trạng
             self.account_table.setItem(i, 5, QTableWidgetItem(acc.get("state", "")))
+        self.account_table.clearSelection()
 
     def on_checkbox_clicked(self, row, new_state):
         # Cập nhật trạng thái 'selected' trong dữ liệu gốc
         if 0 <= row < len(self.accounts):
             self.accounts[row]["selected"] = new_state
+
+    def send_message(self):
+        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Gửi tin nhắn", "Vui lòng tick chọn ít nhất một tài khoản để gửi tin nhắn.")
+            return
+        # Demo: chỉ hiện popup xác nhận, chưa gửi thật
+        usernames = ', '.join(acc.get("username", "") for acc in selected_accounts)
+        QMessageBox.information(self, "Gửi tin nhắn", f"Đã gửi tin nhắn demo tới: {usernames}")
+
+    def load_recipients(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Chọn file danh sách username", "", "Text Files (*.txt)")
+        if not file_path:
+            return
+        usernames = []
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                username = line.strip()
+                if username:
+                    usernames.append(username)
+        if not usernames:
+            QMessageBox.warning(self, "Lỗi file", "File không có username hợp lệ!")
+            return
+        # Nạp vào bảng account_table (chỉ thêm mới, không xóa các tài khoản cũ)
+        for username in usernames:
+            if not any(acc.get("username") == username for acc in self.accounts):
+                self.accounts.append({"username": username, "status": "", "selected": False, "success": 0, "state": ""})
+        self.update_account_table()
+        QMessageBox.information(self, "Thành công", f"Đã nạp {len(usernames)} username vào danh sách tài khoản.")
+
+    def export_recipients(self):
+        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Xuất danh sách", "Vui lòng tick chọn ít nhất một tài khoản để xuất.")
+            return
+        file_path, _ = QFileDialog.getSaveFileName(self, "Xuất danh sách người nhận", "", "Text Files (*.txt)")
+        if not file_path:
+            return
+        with open(file_path, 'w', encoding='utf-8') as f:
+            for acc in selected_accounts:
+                f.write(acc.get("username", "") + "\n")
+        QMessageBox.information(self, "Thành công", f"Đã xuất {len(selected_accounts)} username ra file.")
+
+    def clear_recipients(self):
+        QMessageBox.information(self, "Chức năng", "Xóa danh sách người nhận đang được phát triển.")
+
+    # Đồng bộ logic chọn/bỏ chọn với tab Quản lý Tài khoản
+    def select_selected_accounts(self):
+        selected_rows = self.account_table.selectionModel().selectedRows()
+        for index in selected_rows:
+            row = index.row()
+            if row < len(self.accounts):
+                model_index = self.account_table.model().index(row, 0)
+                self.account_table.model().setData(model_index, True, CheckboxDelegate.CheckboxStateRole)
+                self.accounts[row]["selected"] = True
+        self.update_account_table()
+
+    def deselect_selected_accounts(self):
+        selected_rows = self.account_table.selectionModel().selectedRows()
+        for index in selected_rows:
+            row = index.row()
+            if row < len(self.accounts):
+                model_index = self.account_table.model().index(row, 0)
+                self.account_table.model().setData(model_index, False, CheckboxDelegate.CheckboxStateRole)
+                self.accounts[row]["selected"] = False
+        self.update_account_table()
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
