@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
 
         # Spacer/logo area 100px ở trên cùng
         spacer_logo = QWidget()
-        spacer_logo.setFixedHeight(100)
+        spacer_logo.setFixedHeight(60)
         layout.addWidget(spacer_logo)
 
         self.tab_widget = QTabWidget()
