@@ -167,19 +167,23 @@ class MessagingTab(QWidget):
         content_group = QGroupBox("Nhắn theo nội dung")
         content_layout = QVBoxLayout(content_group)
         
-        # Bảng tin nhắn
+        # Bảng tin nhắn có thêm cột checkbox nhỏ gọn
         self.message_table = QTableWidget()
-        self.message_table.setColumnCount(2)
-        self.message_table.setHorizontalHeaderLabels(["Nội dung", "Link ảnh/video"])
+        self.message_table.setColumnCount(3)
+        self.message_table.setHorizontalHeaderLabels(["", "Nội dung", "Link ảnh/video"])
         header1 = self.message_table.horizontalHeader()
-        header1.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header1.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header1.resizeSection(0, 24)
         header1.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header1.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        header1.resizeSection(2, 120)  # Thu nhỏ cột Link ảnh/video
         self.message_table.verticalHeader().setVisible(False)
         header1.setStretchLastSection(True)
         self.message_table.horizontalHeader().setFixedHeight(40)
         # Menu chuột phải cho bảng nội dung tin nhắn
         self.message_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.message_table.customContextMenuRequested.connect(self.show_message_context_menu)
+        self.message_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         content_layout.addWidget(self.message_table)
         
         # Text box nhập nội dung
@@ -385,8 +389,13 @@ class MessagingTab(QWidget):
             return
         row = self.message_table.rowCount()
         self.message_table.insertRow(row)
-        self.message_table.setItem(row, 0, QTableWidgetItem(message))
-        self.message_table.setItem(row, 1, QTableWidgetItem(media))
+        # Cột 0: checkbox nhỏ
+        item_checkbox = QTableWidgetItem()
+        item_checkbox.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+        item_checkbox.setCheckState(Qt.Unchecked)
+        self.message_table.setItem(row, 0, item_checkbox)
+        self.message_table.setItem(row, 1, QTableWidgetItem(message))
+        self.message_table.setItem(row, 2, QTableWidgetItem(media))
         # Reset input
         content.clear()
         self.selected_media_path = None
@@ -536,8 +545,20 @@ class MessagingTab(QWidget):
             if not selected_accounts:
                 QMessageBox.warning(self, "Gửi tin nhắn", "Vui lòng tick chọn ít nhất một tài khoản để gửi tin nhắn.")
                 return
+            # Lấy các bài viết đã tick chọn
+            selected_templates = []
+            for row in range(self.message_table.rowCount()):
+                item_checkbox = self.message_table.item(row, 0)
+                if item_checkbox and item_checkbox.checkState() == Qt.Checked:
+                    content = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
+                    media = self.message_table.item(row, 2).text() if self.message_table.item(row, 2) else ""
+                    selected_templates.append({"content": content, "media": media})
+            if not selected_templates:
+                QMessageBox.warning(self, "Gửi tin nhắn", "Vui lòng tick chọn ít nhất một bài viết để gửi.")
+                return
             usernames = ', '.join(acc.get("username", "") for acc in selected_accounts)
-            QMessageBox.information(self, "Gửi tin nhắn", f"Đã gửi tin nhắn demo tới: {usernames}")
+            msg_preview = '\n'.join(f"- {tpl['content']} | {tpl['media']}" for tpl in selected_templates)
+            QMessageBox.information(self, "Gửi tin nhắn", f"Đã gửi tin nhắn demo tới: {usernames}\nNội dung:\n{msg_preview}")
         elif self.follower_radio.isChecked():
             # TODO: Lấy danh sách followers của tài khoản gửi tin nhắn
             QMessageBox.information(self, "Gửi tin nhắn", "Chức năng gửi cho người theo dõi đang được phát triển.")
@@ -607,24 +628,33 @@ class MessagingTab(QWidget):
         if not index.isValid():
             return
         menu = QMenu(self)
+        action_select = menu.addAction("Chọn bài viết")
         action_delete = menu.addAction("Xóa nội dung")
         action_edit = menu.addAction("Chỉnh sửa nội dung hoặc link")
         action = menu.exec(self.message_table.viewport().mapToGlobal(pos))
+        selected_rows = set(idx.row() for idx in self.message_table.selectionModel().selectedRows())
         row = index.row()
-        if action == action_delete:
+        if action == action_select:
+            # Tick chọn các dòng đang bôi đen
+            for r in selected_rows:
+                item_checkbox = self.message_table.item(r, 0)
+                if item_checkbox:
+                    item_checkbox.setCheckState(Qt.Checked)
+            self.save_message_templates()
+        elif action == action_delete:
             self.message_table.removeRow(row)
             self.save_message_templates()
         elif action == action_edit:
-            old_content = self.message_table.item(row, 0).text() if self.message_table.item(row, 0) else ""
-            old_link = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
+            old_content = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
+            old_link = self.message_table.item(row, 2).text() if self.message_table.item(row, 2) else ""
             new_content, ok1 = QInputDialog.getText(self, "Chỉnh sửa nội dung", "Nội dung:", QLineEdit.EchoMode.Normal, old_content)
             if not ok1:
                 return
             new_link, ok2 = QInputDialog.getText(self, "Chỉnh sửa link ảnh/video", "Link ảnh/video:", QLineEdit.EchoMode.Normal, old_link)
             if not ok2:
                 return
-            self.message_table.setItem(row, 0, QTableWidgetItem(new_content))
-            self.message_table.setItem(row, 1, QTableWidgetItem(new_link))
+            self.message_table.setItem(row, 1, QTableWidgetItem(new_content))
+            self.message_table.setItem(row, 2, QTableWidgetItem(new_link))
             self.save_message_templates()
 
     def load_message_templates(self):
@@ -640,14 +670,19 @@ class MessagingTab(QWidget):
             for tpl in templates:
                 row = self.message_table.rowCount()
                 self.message_table.insertRow(row)
-                self.message_table.setItem(row, 0, QTableWidgetItem(tpl.get("content", "")))
-                self.message_table.setItem(row, 1, QTableWidgetItem(tpl.get("media", "")))
+                # Cột 0: checkbox nhỏ
+                item_checkbox = QTableWidgetItem()
+                item_checkbox.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                item_checkbox.setCheckState(Qt.Unchecked)
+                self.message_table.setItem(row, 0, item_checkbox)
+                self.message_table.setItem(row, 1, QTableWidgetItem(tpl.get("content", "")))
+                self.message_table.setItem(row, 2, QTableWidgetItem(tpl.get("media", "")))
 
     def save_message_templates(self):
         templates = []
         for row in range(self.message_table.rowCount()):
-            content = self.message_table.item(row, 0).text() if self.message_table.item(row, 0) else ""
-            media = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
+            content = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
+            media = self.message_table.item(row, 2).text() if self.message_table.item(row, 2) else ""
             templates.append({"content": content, "media": media})
         with open("message_templates.json", "w", encoding="utf-8") as f:
             json.dump(templates, f, ensure_ascii=False, indent=2)
