@@ -409,7 +409,7 @@ class MessagingTab(QWidget):
     def show_context_menu(self, pos):
         index = self.account_table.indexAt(pos)
         context_row = index.row() if index.isValid() else None
-        menu = MessagingContextMenu(self, self.account_table, self.accounts)
+        menu = MessagingContextMenu(self)
         menu.context_row = context_row
         menu.exec(self.account_table.viewport().mapToGlobal(pos))
 
