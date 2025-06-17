@@ -2,40 +2,40 @@
   {
     "proxy": "142.111.48.150:6927:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.26s",
-    "note": "Test: www.instagram.com",
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)",
     "assigned_account": ""
   },
   {
     "proxy": "31.58.30.11:6593:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.95s",
-    "note": "Test: www.instagram.com",
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)",
     "assigned_account": ""
   },
   {
     "proxy": "198.12.112.132:5143:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.59s",
-    "note": "Test: www.instagram.com",
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)",
     "assigned_account": ""
   },
   {
     "proxy": "38.170.190.6:9357:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "4.05s",
-    "note": "Test: www.instagram.com",
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)",
     "assigned_account": ""
   },
   {
     "proxy": "154.30.250.127:5639:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "3.41s",
+    "speed": "11.48s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -43,86 +43,86 @@
     "proxy": "38.153.135.14:5394:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.72s",
+    "speed": "12.85s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
   {
     "proxy": "104.232.209.107:6065:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.18s",
-    "note": "Test: www.instagram.com",
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)",
     "assigned_account": ""
   },
   {
     "proxy": "31.58.30.11:6593:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.93s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)"
   },
   {
     "proxy": "38.170.190.6:9357:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "4.05s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)"
   },
   {
     "proxy": "192.186.176.123:8173:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "4.20s",
+    "speed": "12.42s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "154.30.250.127:5639:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "3.35s",
+    "speed": "12.20s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "198.46.161.208:5258:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.82s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)"
   },
   {
     "proxy": "142.111.48.150:6927:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.77s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)"
   },
   {
     "proxy": "198.12.112.132:5143:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.42s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)"
   },
   {
     "proxy": "38.153.135.14:5394:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "3.94s",
+    "speed": "12.88s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "104.253.77.181:5603:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.94s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)"
   },
   {
     "proxy": "104.232.209.107:6065:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.41s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Read timed out. (read timeout=10)"
   }
 ]

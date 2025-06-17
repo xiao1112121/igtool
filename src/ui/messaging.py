@@ -18,6 +18,7 @@ class MessagingTab(QWidget):
         self.duplicate_filtered = False
         self.username_stats_label = QLabel("Số lượng username: 0")
         self.last_username_file_error = None
+        self.accounts = []  # Lưu toàn bộ tài khoản
         self.init_ui()
         
     def init_ui(self):
@@ -135,9 +136,9 @@ class MessagingTab(QWidget):
         self.message_table.setColumnCount(3)
         self.message_table.setHorizontalHeaderLabels(["", "Nội dung", "Link ảnh/video"])
         header1 = self.message_table.horizontalHeader()
-        header1.setSectionResizeMode(0, QHeaderView.Fixed)
-        header1.setSectionResizeMode(1, QHeaderView.Stretch)
-        header1.setSectionResizeMode(2, QHeaderView.Stretch)
+        header1.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header1.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header1.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         header1.resizeSection(0, 60)
         self.message_table.verticalHeader().setVisible(False)
         header1.setStretchLastSection(True)
@@ -172,7 +173,8 @@ class MessagingTab(QWidget):
         
         # ComboBox danh mục
         self.category_combo = QComboBox()
-        self.category_combo.addItems(["Tất cả", "Live", "Die"])
+        self.load_folder_list_to_combo()
+        self.category_combo.currentIndexChanged.connect(self.on_folder_changed)
         
         # Các nút điều khiển
         btn_load = QPushButton("Load")
@@ -232,14 +234,14 @@ class MessagingTab(QWidget):
         headers = ["", "STT", "Tên người dùng", "Trạng thái", "Thành công", "Tình trạng"]
         self.account_table.setHorizontalHeaderLabels(headers)
         header2 = self.account_table.horizontalHeader()
-        header2.setSectionResizeMode(0, QHeaderView.Fixed)
+        header2.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         header2.resizeSection(0, 32)
-        header2.setSectionResizeMode(1, QHeaderView.Fixed)
+        header2.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         header2.resizeSection(1, 40)
-        header2.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header2.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header2.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        header2.setSectionResizeMode(5, QHeaderView.Stretch)
+        header2.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header2.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header2.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        header2.setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
         self.account_table.verticalHeader().setVisible(False)
         header2.setStretchLastSection(True)
         self.account_table.horizontalHeader().setFixedHeight(40)
@@ -254,6 +256,8 @@ class MessagingTab(QWidget):
         # Thêm các panel vào layout chính
         layout.addWidget(left_panel, 35)
         layout.addWidget(right_panel, 65) 
+
+        self.load_accounts()  # Nạp tài khoản khi khởi tạo
 
     def _update_list_options(self):
         if self.username_radio.isChecked():
@@ -399,6 +403,61 @@ class MessagingTab(QWidget):
         print(f"[DEBUG] show_context_menu được gọi tại vị trí: {pos}")
         menu = MessagingContextMenu(self)
         menu.exec(self.recipient_table.viewport().mapToGlobal(pos))
+
+    def load_folder_list_to_combo(self):
+        self.category_combo.clear()
+        self.category_combo.addItem("Tất cả")
+        import os, json
+        folder_map_file = os.path.join("data", "folder_map.json")
+        if os.path.exists(folder_map_file):
+            with open(folder_map_file, "r", encoding="utf-8") as f:
+                folder_map = json.load(f)
+            if folder_map and "_FOLDER_SET_" in folder_map:
+                for folder in folder_map["_FOLDER_SET_"]:
+                    if folder != "Tổng":
+                        self.category_combo.addItem(folder)
+        print(f"[DEBUG][MessagingTab] Đã tải danh sách thư mục vào combobox: {self.category_combo.count()} mục")
+
+    def on_folder_changed(self):
+        selected_folder = self.category_combo.currentText()
+        import os, json
+        folder_map_file = os.path.join("data", "folder_map.json")
+        folder_map = {}
+        if os.path.exists(folder_map_file):
+            with open(folder_map_file, "r", encoding="utf-8") as f:
+                folder_map = json.load(f)
+        if selected_folder == "Tất cả":
+            filtered_accounts = self.accounts
+        else:
+            filtered_accounts = [
+                acc for acc in self.accounts
+                if folder_map.get(acc.get("username"), "Tổng") == selected_folder
+            ]
+        self.update_account_table(filtered_accounts)
+
+    def on_folders_updated(self):
+        self.load_folder_list_to_combo()
+
+    def load_accounts(self):
+        # Nạp toàn bộ tài khoản từ accounts.json
+        import os, json
+        accounts_file = os.path.join("accounts.json")
+        self.accounts = []
+        if os.path.exists(accounts_file):
+            with open(accounts_file, "r", encoding="utf-8") as f:
+                self.accounts = json.load(f)
+        self.on_folder_changed()  # Hiển thị theo thư mục đang chọn
+
+    def update_account_table(self, accounts_to_display=None):
+        if accounts_to_display is None:
+            accounts_to_display = self.accounts
+        self.account_table.setRowCount(len(accounts_to_display))
+        for i, acc in enumerate(accounts_to_display):
+            self.account_table.setItem(i, 0, QTableWidgetItem(str(i+1)))
+            self.account_table.setItem(i, 1, QTableWidgetItem(acc.get("username", "")))
+            self.account_table.setItem(i, 2, QTableWidgetItem(acc.get("status", "")))
+            self.account_table.setItem(i, 3, QTableWidgetItem(str(acc.get("success", ""))))
+            self.account_table.setItem(i, 4, QTableWidgetItem(acc.get("state", "")))
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication

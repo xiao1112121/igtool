@@ -163,12 +163,6 @@ class FolderManagerDialog(QDialog):
 
         main_layout.addLayout(content_layout, 8) # Chiếm 80% chiều cao cửa sổ
 
-        # Thêm label thống kê ở dưới cùng
-        self.stats_label = QLabel()
-        self.stats_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        self.stats_label.setStyleSheet("font-size: 15px; font-weight: bold; padding: 8px 12px;")
-        main_layout.addWidget(self.stats_label)
-
         # Style header xanh đậm, chữ trắng, in đậm cho cả hai bảng
         header_style = (
             "QHeaderView::section {"
@@ -191,7 +185,6 @@ class FolderManagerDialog(QDialog):
         self.account_table.verticalHeader().setVisible(False)
 
         self.load_folders_on_startup()
-        self.update_stats()  # Cập nhật thống kê khi khởi tạo
 
     def update_folder_table(self):
         # Cập nhật lại bảng danh sách thư mục dựa trên self.folders
@@ -357,7 +350,6 @@ class FolderManagerDialog(QDialog):
             filtered_accounts.append(account)
 
         self.update_account_table(filtered_accounts)
-        self.update_stats(filtered_accounts)
 
     def handle_account_table_item_changed(self, item: QTableWidgetItem):
         if item.column() == 0: # Checkbox column
@@ -368,7 +360,6 @@ class FolderManagerDialog(QDialog):
                 if account.get("username") == username:
                     account["selected_in_dialog"] = str(item.checkState() == Qt.CheckState.Checked)
                     break
-        self.update_stats()  # Cập nhật lại thống kê khi tick chọn
 
     def assign_selected_accounts_to_folder(self):
         selected_folder = self.selected_folder_in_table
@@ -432,7 +423,6 @@ class FolderManagerDialog(QDialog):
             self.account_table.setItem(row_idx, 2, QTableWidgetItem(current_folder))
 
         self.account_table.blockSignals(False) # Unblock signals
-        self.update_stats(accounts_to_display)
 
     def transfer_accounts_to_folder(self):
         # Implement the logic to transfer accounts to a folder
@@ -442,30 +432,87 @@ class FolderManagerDialog(QDialog):
         # Xóa thư mục theo dòng
         item = self.folder_table.item(row, 1)
         folder_name = item.text() if item else ""
-        if folder_name:
-            # Logic to delete folder
-            pass
+        if not folder_name:
+            return
+        if folder_name == "Tổng":
+            QMessageBox.warning(self, "Lỗi", "Không thể xóa thư mục 'Tổng'.")
+            return
+        reply = QMessageBox.question(self, 'Xóa thư mục', f"Bạn có chắc chắn muốn xóa thư mục '{folder_name}'? Tất cả tài khoản trong thư mục này sẽ được chuyển về 'Tổng'.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            if folder_name in self.folders:
+                self.folders.remove(folder_name)
+            self.folder_map["_FOLDER_SET_"] = self.folders
+            # Chuyển các account về 'Tổng'
+            for username, folder in self.folder_map.items():
+                if folder == folder_name:
+                    self.folder_map[username] = "Tổng"
+            self.update_folder_table()
+            self.update_account_table()
+            QMessageBox.information(self, "Thành công", f"Đã xóa thư mục '{folder_name}'.")
+            self.folders_updated.emit()
+            self.save_folder_map()
 
     def edit_folder_by_row(self, row: int):
         item = self.folder_table.item(row, 1)
-        folder_name = item.text() if item else ""
-        if folder_name:
-            # Logic to open edit dialog
-            pass
+        old_folder_name = item.text() if item else ""
+        if not old_folder_name:
+            return
+        new_folder_name, ok = QInputDialog.getText(self, "Sửa thư mục", "Tên thư mục mới:", QLineEdit.EchoMode.Normal, old_folder_name)
+        if ok and new_folder_name.strip():
+            new_folder_name = new_folder_name.strip()
+            if new_folder_name == old_folder_name:
+                return
+            if new_folder_name in self.folders:
+                QMessageBox.warning(self, "Lỗi", "Thư mục mới đã tồn tại.")
+                return
+            try:
+                index = self.folders.index(old_folder_name)
+                self.folders[index] = new_folder_name
+                self.folders.sort()
+            except ValueError:
+                pass
+            for username, folder in self.folder_map.items():
+                if folder == old_folder_name:
+                    self.folder_map[username] = new_folder_name
+            self.folder_map["_FOLDER_SET_"] = self.folders
+            self.update_folder_table()
+            self.update_account_table()
+            QMessageBox.information(self, "Thành công", f"Đã sửa thư mục '{old_folder_name}' thành '{new_folder_name}'.")
+            self.folders_updated.emit()
+            self.save_folder_map()
 
     def move_account_to_folder(self, row: int):
         username_item = self.account_table.item(row, 1)
         username = username_item.text() if username_item else ""
-        if username:
-            # Logic to move account
-            pass
+        if not username:
+            return
+        # Hiện dialog chọn thư mục mới
+        folder_list = [f for f in self.folders if f != "Tổng"]
+        if not folder_list:
+            QMessageBox.warning(self, "Chuyển thư mục", "Chưa có thư mục nào để chuyển.")
+            return
+        current_folder = self.folder_map.get(username, "Tổng")
+        new_folder, ok = QInputDialog.getItem(self, "Chuyển thư mục", f"Chọn thư mục mới cho tài khoản '{username}':", folder_list, editable=False)
+        if ok and new_folder and new_folder != current_folder:
+            self.folder_map[username] = new_folder
+            self.update_account_table()
+            self.save_folder_map()
+            QMessageBox.information(self, "Chuyển thư mục", f"Đã chuyển tài khoản '{username}' sang thư mục '{new_folder}'.")
+            self.folders_updated.emit()
 
     def remove_account_from_folder(self, row: int):
         username_item = self.account_table.item(row, 1)
         username = username_item.text() if username_item else ""
-        if username:
-            # Logic to remove account
-            pass
+        if not username:
+            return
+        if self.folder_map.get(username, "Tổng") == "Tổng":
+            QMessageBox.information(self, "Bỏ gán thư mục", f"Tài khoản '{username}' đã ở thư mục 'Tổng'.")
+            return
+        self.folder_map[username] = "Tổng"
+        self.update_account_table()
+        self.save_folder_map()
+        QMessageBox.information(self, "Bỏ gán thư mục", f"Đã bỏ gán tài khoản '{username}' khỏi thư mục.")
+        self.folders_updated.emit()
 
     def closeEvent(self, event: QCloseEvent):
         # Đảm bảo luôn lưu folder_map trước khi đóng dialog
@@ -480,30 +527,3 @@ class FolderManagerDialog(QDialog):
             with open(self.FOLDER_MAP_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         return None 
-
-    def update_stats(self, accounts_to_display: Optional[List[Dict[str, Union[str, bool]]]] = None):
-        # Nếu không truyền vào thì lấy toàn bộ self.accounts (sau khi lọc)
-        if accounts_to_display is None:
-            accounts_to_display = self.accounts
-        total = len(accounts_to_display)
-        live = 0
-        die = 0
-        selected = 0
-        for acc in accounts_to_display:
-            status = str(acc.get("status", "")).lower()
-            if status == "live":
-                live += 1
-            elif status == "die":
-                die += 1
-            if str(acc.get("selected_in_dialog", "False")) == "True":
-                selected += 1
-        not_selected = total - selected
-        # Tạo text với màu sắc
-        stats_html = (
-            f'<span style="color:black">Tổng: <b>{total}</b></span> | '
-            f'<span style="color:green">Live: <b>{live}</b></span> | '
-            f'<span style="color:red">Die: <b>{die}</b></span> | '
-            f'<span style="color:#1976D2">Đã chọn: <b>{selected}</b></span> | '
-            f'<span style="color:gray">Chưa chọn: <b>{not_selected}</b></span>'
-        )
-        self.stats_label.setText(stats_html)

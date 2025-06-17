@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QSize, QTimer, QThread, Signal, QModelIndex, QRec
 from PySide6.QtGui import QIcon, QFont, QPixmap, QColor, QPalette, QPainter, QPen
 import random
 from src.ui.context_menus import DataScannerContextMenu
+import os, json
 
 class DataScannerTab(QWidget):
     def __init__(self):
@@ -16,6 +17,7 @@ class DataScannerTab(QWidget):
         self.scan_timer = None
         self.account_data = []
         self.result_data = []
+        self.accounts = []  # Lưu toàn bộ tài khoản
         self.init_ui()
         
     def init_ui(self):
@@ -67,8 +69,8 @@ class DataScannerTab(QWidget):
         toolbar = QHBoxLayout()
         toolbar.setSpacing(8)
         self.category_combo = QComboBox()
-        self.category_combo.addItems(["Tất cả", "Live", "Die"])
-        self.category_combo.currentIndexChanged.connect(self.load_accounts)
+        self.load_folder_list_to_combo()
+        self.category_combo.currentIndexChanged.connect(self.on_folder_changed)
         
         self.btn_load = QPushButton("Load")
         self.btn_start = QPushButton("Start")
@@ -128,13 +130,13 @@ class DataScannerTab(QWidget):
         self.account_table.setColumnCount(5)
         self.account_table.setHorizontalHeaderLabels(["", "STT", "Username", "Trạng thái", "Thành công"])
         header1 = self.account_table.horizontalHeader()
-        header1.setSectionResizeMode(0, QHeaderView.Fixed)
+        header1.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         header1.resizeSection(0, 32)
-        header1.setSectionResizeMode(1, QHeaderView.Fixed)
+        header1.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         header1.resizeSection(1, 40)
-        header1.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header1.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header1.setSectionResizeMode(4, QHeaderView.Stretch)
+        header1.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header1.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header1.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         self.account_table.verticalHeader().setVisible(False)
         header1.setStretchLastSection(True)
         self.account_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -151,13 +153,13 @@ class DataScannerTab(QWidget):
         self.result_table.setColumnCount(5)
         self.result_table.setHorizontalHeaderLabels(["", "STT", "Tài khoản quét", "Tài khoản bị quét", "Username quét được"])
         header2 = self.result_table.horizontalHeader()
-        header2.setSectionResizeMode(0, QHeaderView.Fixed)
+        header2.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         header2.resizeSection(0, 32)
-        header2.setSectionResizeMode(1, QHeaderView.Fixed)
+        header2.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
         header2.resizeSection(1, 40)
-        header2.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header2.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header2.setSectionResizeMode(4, QHeaderView.Stretch)
+        header2.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header2.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header2.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         self.result_table.verticalHeader().setVisible(False)
         header2.setStretchLastSection(True)
         self.result_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -283,27 +285,26 @@ class DataScannerTab(QWidget):
             QMessageBox.information(self, "Đã nhập danh sách", f"Đã nhập {len(data)} username/link.")
 
     def load_accounts(self):
-        # Sinh dữ liệu mẫu cho tài khoản
-        self.account_data = []
-        for i in range(1, 11):
-            self.account_data.append({
-                'checked': False,
-                'username': f'user{i}',
-                'status': 'Chờ',
-                'success': 0
-            })
-        self.update_account_table()
+        # Nạp toàn bộ tài khoản từ accounts.json
+        accounts_file = os.path.join("accounts.json")
+        self.accounts = []
+        if os.path.exists(accounts_file):
+            with open(accounts_file, "r", encoding="utf-8") as f:
+                self.accounts = json.load(f)
+        self.on_folder_changed()  # Hiển thị theo thư mục đang chọn
 
-    def update_account_table(self):
-        self.account_table.setRowCount(len(self.account_data))
-        for i, acc in enumerate(self.account_data):
+    def update_account_table(self, accounts_to_display=None):
+        if accounts_to_display is None:
+            accounts_to_display = self.accounts
+        self.account_table.setRowCount(len(accounts_to_display))
+        for i, acc in enumerate(accounts_to_display):
             chk = QTableWidgetItem()
-            chk.setCheckState(Qt.Checked if acc['checked'] else Qt.Unchecked)
+            chk.setCheckState(Qt.Checked if acc.get('checked', False) else Qt.Unchecked)
             self.account_table.setItem(i, 0, chk)
             self.account_table.setItem(i, 1, QTableWidgetItem(str(i+1)))
-            self.account_table.setItem(i, 2, QTableWidgetItem(acc['username']))
-            self.account_table.setItem(i, 3, QTableWidgetItem(acc['status']))
-            self.account_table.setItem(i, 4, QTableWidgetItem(str(acc['success'])))
+            self.account_table.setItem(i, 2, QTableWidgetItem(acc.get("username", "")))
+            self.account_table.setItem(i, 3, QTableWidgetItem(acc.get("status", "")))
+            self.account_table.setItem(i, 4, QTableWidgetItem(str(acc.get("success", ""))))
 
     def start_scan(self):
         if self.scan_running:
@@ -360,4 +361,36 @@ class DataScannerTab(QWidget):
         """Hiển thị menu chuột phải."""
         print(f"[DEBUG] show_context_menu được gọi tại vị trí: {pos}")
         menu = DataScannerContextMenu(self)
-        menu.exec(self.result_table.viewport().mapToGlobal(pos)) 
+        menu.exec(self.result_table.viewport().mapToGlobal(pos))
+
+    def load_folder_list_to_combo(self):
+        self.category_combo.clear()
+        self.category_combo.addItem("Tất cả")
+        folder_map_file = os.path.join("data", "folder_map.json")
+        if os.path.exists(folder_map_file):
+            with open(folder_map_file, "r", encoding="utf-8") as f:
+                folder_map = json.load(f)
+            if folder_map and "_FOLDER_SET_" in folder_map:
+                for folder in folder_map["_FOLDER_SET_"]:
+                    if folder != "Tổng":
+                        self.category_combo.addItem(folder)
+        print(f"[DEBUG][DataScannerTab] Đã tải danh sách thư mục vào combobox: {self.category_combo.count()} mục")
+
+    def on_folder_changed(self):
+        selected_folder = self.category_combo.currentText()
+        folder_map_file = os.path.join("data", "folder_map.json")
+        folder_map = {}
+        if os.path.exists(folder_map_file):
+            with open(folder_map_file, "r", encoding="utf-8") as f:
+                folder_map = json.load(f)
+        if selected_folder == "Tất cả":
+            filtered_accounts = self.accounts
+        else:
+            filtered_accounts = [
+                acc for acc in self.accounts
+                if folder_map.get(acc.get("username"), "Tổng") == selected_folder
+            ]
+        self.update_account_table(filtered_accounts)
+
+    def on_folders_updated(self):
+        self.load_folder_list_to_combo() 

@@ -357,34 +357,21 @@ class AccountManagementTab(QWidget):
         self.category_combo.setFixedSize(200, 30)  # Kích thước 200x35px
         toolbar_layout.addWidget(self.category_combo)
 
-        # Nút LOAD
-        btn_load = QPushButton("LOAD")
-        btn_load.setFixedSize(60, 30)  # Đặt kích thước cố định cho nút LOAD là 80x35px để hiển thị đầy đủ chữ
-        btn_load.setProperty("role", "main")  # Sử dụng style main button
-        btn_load.setProperty("color", "yellow")  # Sử dụng màu vàng
-        btn_load.clicked.connect(self.load_accounts)
-        toolbar_layout.addWidget(btn_load)
-
-        # Search bar
+        # Đẩy các widget trước sang trái
+        toolbar_layout.addStretch(1)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Tìm kiếm tài khoản...")
         self.search_input.textChanged.connect(self.filter_accounts)
-        self.search_input.setFixedWidth(150)  # Đặt chiều rộng cố định
-        self.search_input.setFixedHeight(35)  # Giữ nguyên chiều cao
+        self.search_input.setFixedWidth(180)
+        self.search_input.setFixedHeight(35)
         toolbar_layout.addWidget(self.search_input)
 
-        # Layout for buttons
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(8)  # Space between buttons
-
-        btn_search = QPushButton("🔍")  # Đổi tên nút và đặt biểu tượng kính lúp trực tiếp
-        btn_search.clicked.connect(lambda: self.filter_accounts(self.search_input.text()))  # Kết nối với filter_accounts
-        btn_search.setFixedSize(50, 35)  # Đặt kích thước cố định là 50x35px
-        btn_search.setProperty("role", "main")  # Sử dụng style main button
-        btn_search.setProperty("color", "blue")  # Đổi màu xanh da trời
-        button_layout.addWidget(btn_search)
-
-        toolbar_layout.addLayout(button_layout)
+        btn_search = QPushButton("🔍")
+        btn_search.clicked.connect(lambda: self.filter_accounts(self.search_input.text()))
+        btn_search.setFixedSize(50, 35)
+        btn_search.setProperty("role", "main")
+        btn_search.setProperty("color", "blue")
+        toolbar_layout.addWidget(btn_search)
 
         right_layout.addWidget(toolbar_frame)
 
@@ -1103,18 +1090,13 @@ class AccountManagementTab(QWidget):
     def load_folder_list_to_combo(self):
         self.category_combo.clear()
         self.category_combo.addItem("Tất cả")
-        # Kiểm tra xem self.folder_map có được khởi tạo không
-        if not hasattr(self, 'folder_map') or not self.folder_map:
-            self.folder_map = self.load_folder_map()
-
-        # Thêm các thư mục duy nhất từ folder_map vào combobox, bỏ qua _FOLDER_SET_ và các giá trị không phải str
-        unique_folders = sorted(list(set(
-            v for k, v in self.folder_map.items()
-            if k != "_FOLDER_SET_" and isinstance(v, str) and v != "Tổng"
-        )))
-        for folder_name in unique_folders:
-                self.category_combo.addItem(folder_name)
-        print(f"[DEBUG] Đã tải danh sách thư mục vào combobox: {list(self.folder_map.keys())}")
+        # Luôn load lại folder_map từ file để đảm bảo mới nhất
+        folder_map = self.load_folder_map()
+        if folder_map and "_FOLDER_SET_" in folder_map:
+            for folder in folder_map["_FOLDER_SET_"]:
+                if folder != "Tổng":
+                    self.category_combo.addItem(folder)
+        print(f"[DEBUG] Đã tải danh sách thư mục vào combobox: {folder_map.get('_FOLDER_SET_', [])}")
 
     def on_folder_changed(self):
         selected_folder = self.category_combo.currentText()

@@ -1,7 +1,7 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QTabWidget,
-                             QWidget, QVBoxLayout, QStyleFactory)
-from PySide6.QtGui import QAction
+                             QWidget, QVBoxLayout, QStyleFactory, QLabel, QHBoxLayout, QFrame)
+from PySide6.QtGui import QAction, QPixmap
 import os
 
 # Thêm thư mục gốc của dự án vào sys.path để cho phép import các module trong src
@@ -69,11 +69,14 @@ class MainWindow(QMainWindow):
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         layout = QVBoxLayout(main_widget)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        # Spacer/logo area 100px ở trên cùng
-        spacer_logo = QWidget()
-        spacer_logo.setFixedHeight(60)
-        layout.addWidget(spacer_logo)
+        # Header (logo + nền)
+        header = QFrame()
+        header.setFixedHeight(80)
+        header.setStyleSheet("background-image: url('cityline.png'); background-repeat: repeat-x; background-position: top center; background-color: #eaf6ff; border: none;")
+        layout.addWidget(header)
 
         self.tab_widget = QTabWidget()
         layout.addWidget(self.tab_widget)

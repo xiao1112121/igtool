@@ -9,6 +9,13 @@ def git_push():
         return
     try:
         subprocess.check_call("git add .", shell=True)
+
+        # Kiểm tra có thay đổi mới không (trước khi commit)
+        status = subprocess.check_output("git status --porcelain", shell=True).decode().strip()
+        if not status:
+            messagebox.showinfo("Không có thay đổi", "Không có thay đổi mới để backup lên GitHub!")
+            return
+
         subprocess.check_call(f'git commit -m "{msg}"', shell=True)
         subprocess.check_call("git push", shell=True)
         messagebox.showinfo("Thành công", "Đã backup code lên GitHub thành công!")
@@ -21,7 +28,7 @@ def git_restore():
         return
     try:
         subprocess.check_call("git fetch origin", shell=True)
-        subprocess.check_call("git reset --hard origin/main", shell=True)
+        subprocess.check_call("git reset --hard origin/master", shell=True)  # đổi "origin/main" thành "origin/master" nếu nhánh là master
         messagebox.showinfo("Thành công", "Đã khôi phục code về bản trên GitHub!")
     except subprocess.CalledProcessError as e:
         messagebox.showerror("Lỗi", f"Lệnh git bị lỗi: {e}")
