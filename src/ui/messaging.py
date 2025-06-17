@@ -9,6 +9,7 @@ from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPe
 from src.ui.context_menus import MessagingContextMenu
 from src.ui.account_management import CheckboxDelegate
 import json
+import os
 
 class MessagingTab(QWidget):
     def __init__(self):
@@ -41,37 +42,42 @@ class MessagingTab(QWidget):
         # Số luồng chạy đồng thời
         thread_layout = QHBoxLayout()
         thread_layout.addWidget(QLabel("Số luồng:"))
-        thread_spin = QSpinBox()
-        thread_spin.setRange(1, 10)
-        thread_layout.addWidget(thread_spin)
+        self.thread_spin = QSpinBox()
+        self.thread_spin.setRange(1, 10)
+        self.thread_spin.setToolTip("Số tài khoản gửi đồng thời")
+        thread_layout.addWidget(self.thread_spin)
         config_layout.addLayout(thread_layout)
         
-        # Tài khoản lỗi cho chuyển tiếp
+        # Tài khoản lỗi liên tiếp
         error_layout = QHBoxLayout()
         error_layout.addWidget(QLabel("Tài khoản lỗi:"))
-        error_spin = QSpinBox()
-        error_spin.setRange(1, 100)
-        error_layout.addWidget(error_spin)
+        self.error_spin = QSpinBox()
+        self.error_spin.setRange(1, 10)
+        self.error_spin.setToolTip("Số lần gửi lỗi liên tiếp cho mỗi tài khoản đích, nếu vượt quá thì bỏ qua tài khoản đích đó")
+        error_layout.addWidget(self.error_spin)
         config_layout.addLayout(error_layout)
         
-        # Tối đa/tối thiểu inbox
-        inbox_layout = QHBoxLayout()
-        inbox_layout.addWidget(QLabel("Tối đa inbox:"))
-        max_inbox = QSpinBox()
-        max_inbox.setRange(1, 1000)
-        inbox_layout.addWidget(max_inbox)
-        inbox_layout.addWidget(QLabel("Tối thiểu inbox:"))
-        min_inbox = QSpinBox()
-        min_inbox.setRange(1, 1000)
-        inbox_layout.addWidget(min_inbox)
-        config_layout.addLayout(inbox_layout)
+        # Số lượng tin nhắn thành công/tài khoản gửi
+        msg_count_layout = QHBoxLayout()
+        msg_count_layout.addWidget(QLabel("Số lượng tin nhắn:"))
+        self.msg_count_spin = QSpinBox()
+        self.msg_count_spin.setRange(1, 1000)
+        self.msg_count_spin.setToolTip("Giới hạn số tin nhắn thành công/tài khoản gửi")
+        msg_count_layout.addWidget(self.msg_count_spin)
+        config_layout.addLayout(msg_count_layout)
         
-        # Khoảng cách gửi
+        # Khoảng cách gửi (giây): min/max
         delay_layout = QHBoxLayout()
         delay_layout.addWidget(QLabel("Khoảng cách (giây):"))
-        delay_spin = QSpinBox()
-        delay_spin.setRange(1, 3600)
-        delay_layout.addWidget(delay_spin)
+        self.delay_min_spin = QSpinBox()
+        self.delay_min_spin.setRange(1, 3600)
+        self.delay_min_spin.setToolTip("Khoảng cách tối thiểu giữa các lần gửi (giây)")
+        delay_layout.addWidget(self.delay_min_spin)
+        delay_layout.addWidget(QLabel("-") )
+        self.delay_max_spin = QSpinBox()
+        self.delay_max_spin.setRange(1, 3600)
+        self.delay_max_spin.setToolTip("Khoảng cách tối đa giữa các lần gửi (giây)")
+        delay_layout.addWidget(self.delay_max_spin)
         config_layout.addLayout(delay_layout)
         
         left_layout.addWidget(config_group)
@@ -80,16 +86,28 @@ class MessagingTab(QWidget):
         list_group = QGroupBox("Nhắn theo danh sách")
         list_layout = QVBoxLayout(list_group)
         list_layout.setContentsMargins(8, 18, 8, 8)
-        
-        # Radio buttons + nút nhập data + nút info
-        radio_row_layout = QHBoxLayout()
+
+        # Layout dọc cho radio + checkbox
+        radio_col_layout = QVBoxLayout()
+        radio_col_layout.setSpacing(8)
         self.username_radio = QRadioButton("Theo danh sách username")
-        radio_row_layout.addWidget(self.username_radio)
+        self.follower_radio = QRadioButton("Theo người theo dõi")
+        self.following_radio = QRadioButton("Theo người đang theo dõi")
+        radio_col_layout.addWidget(self.username_radio)
+        radio_col_layout.addWidget(self.follower_radio)
+        radio_col_layout.addWidget(self.following_radio)
+        self.no_duplicate = QCheckBox("Không nhắn trùng username")
+        radio_col_layout.addWidget(self.no_duplicate)
+        radio_col_layout.addStretch(1)
+
+        # Layout ngang cho radio + nút nhập data + nút info
+        radio_row_layout = QHBoxLayout()
+        radio_row_layout.setSpacing(10)
+        radio_row_layout.addLayout(radio_col_layout)
         radio_row_layout.addStretch(1)
         self.btn_choose_file = QPushButton("Nhập data")
         self.btn_choose_file.setFixedWidth(90)
         radio_row_layout.addWidget(self.btn_choose_file)
-        # Nút info
         self.info_btn = QPushButton("i")
         self.info_btn.setFixedSize(22, 22)
         self.info_btn.setStyleSheet("QPushButton { border-radius: 11px; background: #1976D2; color: white; font-weight: bold; font-size: 13px; } QPushButton::hover { background: #1565c0; }")
@@ -104,19 +122,6 @@ class MessagingTab(QWidget):
         )
         radio_row_layout.addWidget(self.info_btn)
         list_layout.addLayout(radio_row_layout)
-        self.follower_radio = QRadioButton("Theo người theo dõi")
-        self.following_radio = QRadioButton("Theo người đang theo dõi")
-        self.radio_group = QButtonGroup(self)
-        self.radio_group.addButton(self.username_radio)
-        self.radio_group.addButton(self.follower_radio)
-        self.radio_group.addButton(self.following_radio)
-        self.radio_group.setExclusive(True)
-        list_layout.addWidget(self.follower_radio)
-        list_layout.addWidget(self.following_radio)
-        # Nút nhập data đã chuyển lên trên
-        # list_layout.addWidget(self.btn_choose_file)  # XÓA DÒNG NÀY nếu còn
-        self.no_duplicate = QCheckBox("Không nhắn trùng username")
-        list_layout.addWidget(self.no_duplicate)
         list_layout.addWidget(self.username_stats_label)
         self.btn_choose_file.setVisible(True)
         self.no_duplicate.setVisible(True)
@@ -144,7 +149,6 @@ class MessagingTab(QWidget):
             padding: 2px 8px;
         }
         QRadioButton::indicator { width: 16px; height: 16px; }
-        /* Không đổi nền khi checked */
         QRadioButton:checked {
             background: white;
             color: #1976D2;
@@ -153,13 +157,11 @@ class MessagingTab(QWidget):
         self.username_radio.setStyleSheet(radio_style)
         self.follower_radio.setStyleSheet(radio_style)
         self.following_radio.setStyleSheet(radio_style)
-        # Đổi nền nút nhập data thành xanh dương và chỉnh kích thước
         self.btn_choose_file.setStyleSheet("QPushButton { background-color: #1976D2; color: white; border-radius: 4px; } QPushButton::hover { background-color: #1565c0; }")
         self.btn_choose_file.setMinimumSize(70, 35)
         self.btn_choose_file.setMaximumSize(90, 35)
         self.btn_choose_file.clicked.disconnect()
         self.btn_choose_file.clicked.connect(self.open_or_create_data_file)
-        # Xử lý lọc trùng
         self.no_duplicate.stateChanged.connect(self.filter_duplicate_usernames)
         left_layout.addWidget(list_group)
         
@@ -219,23 +221,11 @@ class MessagingTab(QWidget):
         self.category_combo.currentIndexChanged.connect(self.on_folder_changed)
         
         # Các nút điều khiển
-        btn_load = QPushButton("Load")
-        btn_start = QPushButton("Start")
-        btn_stop = QPushButton("Stop")
+        # self.btn_load = QPushButton("Load")  # XÓA nút Load
+        self.btn_start = QPushButton("Start")
+        self.btn_stop = QPushButton("Stop")
 
-        # Style cho các nút Load, Start, Stop
-        load_button_style = """
-        QPushButton {
-            min-width: 40px;
-            max-width: 40px;
-            min-height: 35px;
-            max-height: 35px;
-            border: 1px solid #888;
-            border-radius: 4px;
-            color: white;
-            background-color: #fdd835;
-        }
-        """
+        # Style cho các nút Start, Stop
         start_button_style = """
         QPushButton {
             min-width: 40px;
@@ -257,17 +247,15 @@ class MessagingTab(QWidget):
             border: 1px solid #888;
             border-radius: 4px;
             color: white;
-            background-color: #f44336;
+            background-color: #e53935;
         }
         """
-        btn_load.setStyleSheet(load_button_style)
-        btn_start.setStyleSheet(start_button_style)
-        btn_stop.setStyleSheet(stop_button_style)
-
+        self.btn_start.setStyleSheet(start_button_style)
+        self.btn_stop.setStyleSheet(stop_button_style)
         toolbar_layout.addWidget(self.category_combo)
-        toolbar_layout.addWidget(btn_load)
-        toolbar_layout.addWidget(btn_start)
-        toolbar_layout.addWidget(btn_stop)
+        # toolbar_layout.addWidget(btn_load)  # XÓA nút Load
+        toolbar_layout.addWidget(self.btn_start)
+        toolbar_layout.addWidget(self.btn_stop)
         right_layout.addWidget(toolbar)
         
         # Bảng dữ liệu tài khoản
@@ -309,18 +297,57 @@ class MessagingTab(QWidget):
         self.account_table.customContextMenuRequested.connect(self.show_context_menu)
         self.account_table.setSelectionBehavior(QAbstractItemView.SelectRows)
 
+        # Gán chức năng cho nút Start và Stop
+        self.btn_start.clicked.connect(self.send_message)
+        self.btn_stop.clicked.connect(self.stop_sending)
+
     def open_or_create_data_file(self):
         import os
         import subprocess
+        from PySide6.QtCore import QTimer
         data_file = "usernames_data.txt"
         if not os.path.exists(data_file):
             with open(data_file, "w", encoding="utf-8") as f:
                 f.write("")
         # Mở file bằng notepad (Windows)
         try:
-            subprocess.Popen(["notepad.exe", data_file])
+            self.notepad_proc = subprocess.Popen(["notepad.exe", data_file])
         except Exception as e:
             QMessageBox.warning(self, "Lỗi", f"Không thể mở file: {e}")
+            return
+        # Tạo QTimer kiểm tra notepad đã đóng chưa
+        def check_notepad_closed():
+            if self.notepad_proc.poll() is not None:
+                # Notepad đã đóng, reload file
+                self.reload_usernames_data_file()
+                self.notepad_timer.stop()
+        self.notepad_timer = QTimer(self)
+        self.notepad_timer.timeout.connect(check_notepad_closed)
+        self.notepad_timer.start(1000)  # Kiểm tra mỗi giây
+
+    def reload_usernames_data_file(self):
+        data_file = "usernames_data.txt"
+        usernames = []
+        errors = []
+        if not os.path.exists(data_file):
+            self.usernames = []
+            self.username_stats_label.setText("Số lượng username: 0")
+            return
+        with open(data_file, 'r', encoding='utf-8') as f:
+            for idx, line in enumerate(f):
+                username = line.strip()
+                if not username:
+                    continue
+                if ' ' in username or ',' in username or '\t' in username:
+                    continue
+                if username.count('@') > 0:
+                    username = username.replace('@', '')
+                if username:
+                    usernames.append(username)
+        self.usernames = usernames
+        self.update_username_stats()
+        if errors:
+            QMessageBox.warning(self, "Cảnh báo file", "Một số dòng bị loại bỏ:\n" + '\n'.join(errors))
 
     def choose_username_file(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -357,7 +384,8 @@ class MessagingTab(QWidget):
             QMessageBox.warning(self, "Cảnh báo file", "Một số dòng bị loại bỏ:\n" + '\n'.join(errors))
 
     def update_username_stats(self):
-        count = len(self.usernames)
+        # Thống kê tổng số tài khoản đích hợp lệ đã tải lên
+        count = len([u for u in self.usernames if u and isinstance(u, str)])
         self.username_stats_label.setText(f"Số lượng username: {count}")
 
     def filter_duplicate_usernames(self):
@@ -415,9 +443,9 @@ class MessagingTab(QWidget):
         settings = {
             "thread_spin_value": self.thread_spin.value(),
             "error_spin_value": self.error_spin.value(),
-            "max_inbox_value": self.max_inbox.value(),
-            "min_inbox_value": self.min_inbox.value(),
-            "delay_spin_value": self.delay_spin.value(),
+            "msg_count_spin_value": self.msg_count_spin.value(),
+            "delay_min_spin_value": self.delay_min_spin.value(),
+            "delay_max_spin_value": self.delay_max_spin.value(),
             "username_radio_checked": self.username_radio.isChecked(),
             "follower_radio_checked": self.follower_radio.isChecked(),
             "following_radio_checked": self.following_radio.isChecked(),
@@ -434,9 +462,9 @@ class MessagingTab(QWidget):
                 settings = json.load(f)
             self.thread_spin.setValue(settings.get("thread_spin_value", 1))
             self.error_spin.setValue(settings.get("error_spin_value", 1))
-            self.max_inbox.setValue(settings.get("max_inbox_value", 1))
-            self.min_inbox.setValue(settings.get("min_inbox_value", 1))
-            self.delay_spin.setValue(settings.get("delay_spin_value", 1))
+            self.msg_count_spin.setValue(settings.get("msg_count_spin_value", 1))
+            self.delay_min_spin.setValue(settings.get("delay_min_spin_value", 1))
+            self.delay_max_spin.setValue(settings.get("delay_max_spin_value", 1))
             if settings.get("username_radio_checked", True):
                 self.username_radio.setChecked(True)
             elif settings.get("follower_radio_checked", False):
@@ -453,7 +481,7 @@ class MessagingTab(QWidget):
             update_input_mode() # Ensure correct visibility after loading settings
 
     def _validate_delay_spin(self):
-        if self.delay_spin.value() < 5:
+        if self.delay_min_spin.value() < 5:
             QMessageBox.warning(self, "Cảnh báo", "Khoảng cách gửi tối thiểu phải là 5 giây!")
 
     def show_context_menu(self, pos):
@@ -529,6 +557,25 @@ class MessagingTab(QWidget):
         if 0 <= row < len(self.accounts):
             self.accounts[row]["selected"] = new_state
 
+    def update_sender_status(self, username, state, success_count=None):
+        # Cập nhật trạng thái và số lượng thành công cho tài khoản gửi
+        for acc in self.accounts:
+            if acc.get("username") == username:
+                acc["state"] = state
+                if success_count is not None:
+                    acc["success"] = success_count
+                break
+        self.update_account_table()
+        self.update_send_stats()
+
+    def update_send_stats(self):
+        # Thống kê tổng số tài khoản gửi: thành công, thất bại, chưa gửi
+        success = sum(1 for acc in self.accounts if acc.get("success", 0) > 0)
+        fail = sum(1 for acc in self.accounts if str(acc.get("state", "")).lower() in ["lỗi", "checkpoint", "die"])
+        not_sent = sum(1 for acc in self.accounts if acc.get("success", 0) == 0 and str(acc.get("state", "")).lower() not in ["lỗi", "checkpoint", "die"])
+        if hasattr(self, 'stats_label'):
+            self.stats_label.setText(f"Thành công: {success} | Thất bại: {fail} | Chưa gửi: {not_sent}")
+
     def send_message(self):
         # Lọc danh sách người nhận theo chế độ radio
         if self.username_radio.isChecked():
@@ -559,6 +606,8 @@ class MessagingTab(QWidget):
             usernames = ', '.join(acc.get("username", "") for acc in selected_accounts)
             msg_preview = '\n'.join(f"- {tpl['content']} | {tpl['media']}" for tpl in selected_templates)
             QMessageBox.information(self, "Gửi tin nhắn", f"Đã gửi tin nhắn demo tới: {usernames}\nNội dung:\n{msg_preview}")
+            # Sau mỗi lần gửi thành công/thất bại cho tài khoản gửi:
+            self.update_sender_status(usernames, "Thành công", len(selected_templates))
         elif self.follower_radio.isChecked():
             # TODO: Lấy danh sách followers của tài khoản gửi tin nhắn
             QMessageBox.information(self, "Gửi tin nhắn", "Chức năng gửi cho người theo dõi đang được phát triển.")
@@ -686,6 +735,10 @@ class MessagingTab(QWidget):
             templates.append({"content": content, "media": media})
         with open("message_templates.json", "w", encoding="utf-8") as f:
             json.dump(templates, f, ensure_ascii=False, indent=2)
+
+    def stop_sending(self):
+        # Hàm này sẽ dừng quá trình gửi tin nhắn (cần bổ sung logic dừng thread hoặc flag)
+        QMessageBox.information(self, "Dừng gửi", "Đã dừng gửi tin nhắn.")
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
