@@ -148,11 +148,7 @@ class MessagingContextMenu(QMenu):
         return []
 
     def select_rows(self):
-        rows = self.get_selected_rows(getattr(self, 'context_row', None))
-        for row in rows:
-            if 0 <= row < len(self.parent.accounts):
-                self.parent.accounts[row]["selected"] = True
-        self.parent.update_account_table()
+        self.parent.select_selected_accounts()
 
     def select_all(self):
         for acc in self.parent.accounts:
@@ -160,11 +156,7 @@ class MessagingContextMenu(QMenu):
         self.parent.update_account_table()
 
     def deselect_rows(self):
-        rows = self.get_selected_rows(getattr(self, 'context_row', None))
-        for row in rows:
-            if 0 <= row < len(self.parent.accounts):
-                self.parent.accounts[row]["selected"] = False
-        self.parent.update_account_table()
+        self.parent.deselect_selected_accounts()
 
     def deselect_all(self):
         for acc in self.parent.accounts:

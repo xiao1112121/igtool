@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
                             QLineEdit, QSpinBox, QRadioButton, QCheckBox, 
                             QGroupBox, QTextEdit, QHeaderView, QFileDialog, QMessageBox, QButtonGroup,
                             QProgressBar, QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
-                            QSizePolicy, QStyledItemDelegate, QMenu)
+                            QSizePolicy, QStyledItemDelegate, QMenu, QAbstractItemView, QInputDialog)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QAction
 from src.ui.context_menus import MessagingContextMenu
@@ -28,6 +28,9 @@ class MessagingTab(QWidget):
         # Panel bên trái (35%)
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
+        
+        # Thu nhỏ cỡ chữ cho panel bên trái
+        left_panel.setStyleSheet("font-size: 12px;")
         
         # 1. Cấu hình tin nhắn
         config_group = QGroupBox("Cấu hình tin nhắn")
@@ -76,8 +79,29 @@ class MessagingTab(QWidget):
         list_layout = QVBoxLayout(list_group)
         list_layout.setContentsMargins(8, 18, 8, 8)
         
-        # Radio buttons
+        # Radio buttons + nút nhập data + nút info
+        radio_row_layout = QHBoxLayout()
         self.username_radio = QRadioButton("Theo danh sách username")
+        radio_row_layout.addWidget(self.username_radio)
+        radio_row_layout.addStretch(1)
+        self.btn_choose_file = QPushButton("Nhập data")
+        self.btn_choose_file.setFixedWidth(90)
+        radio_row_layout.addWidget(self.btn_choose_file)
+        # Nút info
+        self.info_btn = QPushButton("i")
+        self.info_btn.setFixedSize(22, 22)
+        self.info_btn.setStyleSheet("QPushButton { border-radius: 11px; background: #1976D2; color: white; font-weight: bold; font-size: 13px; } QPushButton::hover { background: #1565c0; }")
+        self.info_btn.setToolTip('<div style="background:#fff; color:#1976D2; font-size:13px; padding:6px;">'
+            '<ul style="margin:0; padding-left:18px;">'
+            '<li><b>Theo danh sách username</b>: Nhắn theo dữ liệu được tải lên (có thể là id, username,...)</li>'
+            '<li><b>Theo người theo dõi</b>: Nhắn cho những người đang theo dõi chính tài khoản gửi tin nhắn</li>'
+            '<li><b>Theo người đang theo dõi</b>: Nhắn cho những người mà tài khoản gửi tin nhắn đang theo dõi</li>'
+            '<li><b>Không nhắn trùng username</b>: Khi tick, các tài khoản không được phép gửi trùng người nhận; bỏ tick thì được phép gửi trùng người nhận.</li>'
+            '<li>Chỉ các tài khoản đã tick chọn mới được gửi tin nhắn.</li>'
+            '</ul>'
+        )
+        radio_row_layout.addWidget(self.info_btn)
+        list_layout.addLayout(radio_row_layout)
         self.follower_radio = QRadioButton("Theo người theo dõi")
         self.following_radio = QRadioButton("Theo người đang theo dõi")
         self.radio_group = QButtonGroup(self)
@@ -85,24 +109,28 @@ class MessagingTab(QWidget):
         self.radio_group.addButton(self.follower_radio)
         self.radio_group.addButton(self.following_radio)
         self.radio_group.setExclusive(True)
-        list_layout.addWidget(self.username_radio)
         list_layout.addWidget(self.follower_radio)
         list_layout.addWidget(self.following_radio)
-        # Nút chọn file và checkbox chỉ cho lựa chọn username
-        self.btn_choose_file = QPushButton("Chọn file username.txt")
+        # Nút nhập data đã chuyển lên trên
+        # list_layout.addWidget(self.btn_choose_file)  # XÓA DÒNG NÀY nếu còn
         self.no_duplicate = QCheckBox("Không nhắn trùng username")
-        list_layout.addWidget(self.btn_choose_file)
         list_layout.addWidget(self.no_duplicate)
         list_layout.addWidget(self.username_stats_label)
         self.btn_choose_file.setVisible(True)
         self.no_duplicate.setVisible(True)
         self.username_stats_label.setVisible(True)
-        # Ẩn/hiện nút chọn file và checkbox theo radio
-        self.username_radio.toggled.connect(self._update_list_options)
-        self.follower_radio.toggled.connect(self._update_list_options)
-        self.following_radio.toggled.connect(self._update_list_options)
-        self.username_radio.setChecked(True)
-        self._update_list_options()
+        # Ẩn/hiện nút nhập data và checkbox theo radio
+        def update_input_mode():
+            if self.username_radio.isChecked():
+                self.btn_choose_file.setEnabled(True)
+                self.no_duplicate.setEnabled(True)
+            else:
+                self.btn_choose_file.setEnabled(False)
+                self.no_duplicate.setEnabled(False)
+        self.username_radio.toggled.connect(update_input_mode)
+        self.follower_radio.toggled.connect(update_input_mode)
+        self.following_radio.toggled.connect(update_input_mode)
+        update_input_mode()
         # Style cho checkbox khi tick
         self.no_duplicate.setStyleSheet("QCheckBox::indicator:checked { background-color: #4caf50; border: 1px solid #388e3c; } QCheckBox::indicator { width: 16px; height: 16px; }")
         # Style cho radio button khi chọn
@@ -114,14 +142,17 @@ class MessagingTab(QWidget):
             padding: 2px 8px;
         }
         QRadioButton::indicator { width: 16px; height: 16px; }
+        /* Không đổi nền khi checked */
         QRadioButton:checked {
-            background: #2196f3;
-            color: white;
+            background: white;
+            color: #1976D2;
         }
         """
         self.username_radio.setStyleSheet(radio_style)
         self.follower_radio.setStyleSheet(radio_style)
         self.following_radio.setStyleSheet(radio_style)
+        # Đổi nền nút nhập data thành xanh dương
+        self.btn_choose_file.setStyleSheet("QPushButton { background-color: #1976D2; color: white; border-radius: 4px; } QPushButton::hover { background-color: #1565c0; }")
         # Xử lý chọn file username.txt
         self.btn_choose_file.clicked.connect(self.choose_username_file)
         # Xử lý lọc trùng
@@ -134,21 +165,23 @@ class MessagingTab(QWidget):
         
         # Bảng tin nhắn
         self.message_table = QTableWidget()
-        self.message_table.setColumnCount(3)
-        self.message_table.setHorizontalHeaderLabels(["", "Nội dung", "Link ảnh/video"])
+        self.message_table.setColumnCount(2)
+        self.message_table.setHorizontalHeaderLabels(["Nội dung", "Link ảnh/video"])
         header1 = self.message_table.horizontalHeader()
-        header1.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
+        header1.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header1.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header1.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
-        header1.resizeSection(0, 60)
         self.message_table.verticalHeader().setVisible(False)
         header1.setStretchLastSection(True)
         self.message_table.horizontalHeader().setFixedHeight(40)
+        # Menu chuột phải cho bảng nội dung tin nhắn
+        self.message_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.message_table.customContextMenuRequested.connect(self.show_message_context_menu)
         content_layout.addWidget(self.message_table)
         
         # Text box nhập nội dung
         message_input = QTextEdit()
         message_input.setPlaceholderText("Nhập nội dung tin nhắn...")
+        message_input.setFixedHeight(50)
         content_layout.addWidget(message_input)
         
         # Nút chọn ảnh/video và lưu
@@ -266,16 +299,7 @@ class MessagingTab(QWidget):
 
         self.account_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.account_table.customContextMenuRequested.connect(self.show_context_menu)
-
-    def _update_list_options(self):
-        if self.username_radio.isChecked():
-            self.btn_choose_file.setVisible(True)
-            self.no_duplicate.setVisible(True)
-            self.username_stats_label.setVisible(True)
-        else:
-            self.btn_choose_file.setVisible(False)
-            self.no_duplicate.setVisible(False)
-            self.username_stats_label.setVisible(False)
+        self.account_table.setSelectionBehavior(QAbstractItemView.SelectRows)
 
     def choose_username_file(self):
         from PySide6.QtWidgets import QFileDialog, QMessageBox
@@ -344,9 +368,8 @@ class MessagingTab(QWidget):
             return
         row = self.message_table.rowCount()
         self.message_table.insertRow(row)
-        self.message_table.setItem(row, 0, QTableWidgetItem(str(row+1)))
-        self.message_table.setItem(row, 1, QTableWidgetItem(message))
-        self.message_table.setItem(row, 2, QTableWidgetItem(media))
+        self.message_table.setItem(row, 0, QTableWidgetItem(message))
+        self.message_table.setItem(row, 1, QTableWidgetItem(media))
         # Reset input
         content.clear()
         self.selected_media_path = None
@@ -400,7 +423,7 @@ class MessagingTab(QWidget):
             if saved_path and os.path.exists(saved_path):
                 self.username_file_path = saved_path
                 self.choose_username_file(saved_path) # Reload file to update usernames list and stats
-            self._update_list_options() # Ensure correct visibility after loading settings
+            update_input_mode() # Ensure correct visibility after loading settings
 
     def _validate_delay_spin(self):
         if self.delay_spin.value() < 5:
@@ -480,13 +503,29 @@ class MessagingTab(QWidget):
             self.accounts[row]["selected"] = new_state
 
     def send_message(self):
-        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
-        if not selected_accounts:
-            QMessageBox.warning(self, "Gửi tin nhắn", "Vui lòng tick chọn ít nhất một tài khoản để gửi tin nhắn.")
-            return
-        # Demo: chỉ hiện popup xác nhận, chưa gửi thật
-        usernames = ', '.join(acc.get("username", "") for acc in selected_accounts)
-        QMessageBox.information(self, "Gửi tin nhắn", f"Đã gửi tin nhắn demo tới: {usernames}")
+        # Lọc danh sách người nhận theo chế độ radio
+        if self.username_radio.isChecked():
+            selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+            if self.no_duplicate.isChecked():
+                seen = set()
+                filtered = []
+                for acc in selected_accounts:
+                    username = acc.get("username", "")
+                    if username not in seen:
+                        filtered.append(acc)
+                        seen.add(username)
+                selected_accounts = filtered
+            if not selected_accounts:
+                QMessageBox.warning(self, "Gửi tin nhắn", "Vui lòng tick chọn ít nhất một tài khoản để gửi tin nhắn.")
+                return
+            usernames = ', '.join(acc.get("username", "") for acc in selected_accounts)
+            QMessageBox.information(self, "Gửi tin nhắn", f"Đã gửi tin nhắn demo tới: {usernames}")
+        elif self.follower_radio.isChecked():
+            # TODO: Lấy danh sách followers của tài khoản gửi tin nhắn
+            QMessageBox.information(self, "Gửi tin nhắn", "Chức năng gửi cho người theo dõi đang được phát triển.")
+        elif self.following_radio.isChecked():
+            # TODO: Lấy danh sách following của tài khoản gửi tin nhắn
+            QMessageBox.information(self, "Gửi tin nhắn", "Chức năng gửi cho người đang theo dõi đang được phát triển.")
 
     def load_recipients(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Chọn file danh sách username", "", "Text Files (*.txt)")
@@ -544,6 +583,29 @@ class MessagingTab(QWidget):
                 self.account_table.model().setData(model_index, False, CheckboxDelegate.CheckboxStateRole)
                 self.accounts[row]["selected"] = False
         self.update_account_table()
+
+    def show_message_context_menu(self, pos):
+        index = self.message_table.indexAt(pos)
+        if not index.isValid():
+            return
+        menu = QMenu(self)
+        action_delete = menu.addAction("Xóa nội dung")
+        action_edit = menu.addAction("Chỉnh sửa nội dung hoặc link")
+        action = menu.exec(self.message_table.viewport().mapToGlobal(pos))
+        row = index.row()
+        if action == action_delete:
+            self.message_table.removeRow(row)
+        elif action == action_edit:
+            old_content = self.message_table.item(row, 0).text() if self.message_table.item(row, 0) else ""
+            old_link = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
+            new_content, ok1 = QInputDialog.getText(self, "Chỉnh sửa nội dung", "Nội dung:", QLineEdit.EchoMode.Normal, old_content)
+            if not ok1:
+                return
+            new_link, ok2 = QInputDialog.getText(self, "Chỉnh sửa link ảnh/video", "Link ảnh/video:", QLineEdit.EchoMode.Normal, old_link)
+            if not ok2:
+                return
+            self.message_table.setItem(row, 0, QTableWidgetItem(new_content))
+            self.message_table.setItem(row, 1, QTableWidgetItem(new_link))
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication

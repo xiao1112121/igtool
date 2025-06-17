@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, 
                             QTableWidget, QTableWidgetItem, QComboBox, QLabel, 
                             QLineEdit, QSpinBox, QRadioButton, QCheckBox, 
-                            QGroupBox, QTextEdit, QFrame, QGridLayout, QStackedWidget, QFileDialog, QMessageBox, QSizePolicy, QHeaderView, QProgressBar, QScrollArea, QSplitter, QTabWidget, QApplication, QStyledItemDelegate, QMenu)
+                            QGroupBox, QTextEdit, QFrame, QGridLayout, QStackedWidget, QFileDialog, QMessageBox, QSizePolicy, QHeaderView, QProgressBar, QScrollArea, QSplitter, QTabWidget, QApplication, QStyledItemDelegate, QMenu, QAbstractItemView)
 from PySide6.QtCore import Qt, QSize, QTimer, QThread, Signal, QModelIndex, QRect, QEvent
 from PySide6.QtGui import QIcon, QFont, QPixmap, QColor, QPalette, QPainter, QPen
 import random
@@ -147,6 +147,7 @@ class DataScannerTab(QWidget):
         self.checkbox_delegate = CheckboxDelegate(self)
         self.account_table.setItemDelegateForColumn(0, self.checkbox_delegate)
         self.checkbox_delegate.checkbox_clicked.connect(self.on_checkbox_clicked)
+        self.account_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         top_layout.addWidget(self.account_table)
         # Bảng dưới
         bottom_group = QGroupBox("Kết quả quét")
@@ -411,3 +412,23 @@ class DataScannerTab(QWidget):
         # Cập nhật trạng thái 'selected' trong dữ liệu gốc
         if 0 <= row < len(self.accounts):
             self.accounts[row]["selected"] = new_state 
+
+    def select_selected_accounts(self):
+        selected_rows = self.account_table.selectionModel().selectedRows()
+        for index in selected_rows:
+            row = index.row()
+            if row < len(self.accounts):
+                model_index = self.account_table.model().index(row, 0)
+                self.account_table.model().setData(model_index, True, CheckboxDelegate.CheckboxStateRole)
+                self.accounts[row]["selected"] = True
+        self.update_account_table()
+
+    def deselect_selected_accounts(self):
+        selected_rows = self.account_table.selectionModel().selectedRows()
+        for index in selected_rows:
+            row = index.row()
+            if row < len(self.accounts):
+                model_index = self.account_table.model().index(row, 0)
+                self.account_table.model().setData(model_index, False, CheckboxDelegate.CheckboxStateRole)
+                self.accounts[row]["selected"] = False
+        self.update_account_table() 

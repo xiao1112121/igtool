@@ -422,7 +422,7 @@ class AccountManagementTab(QWidget):
         # Thiết lập căn lề cho các tiêu đề cột
         self.account_table.horizontalHeader().setDefaultAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-        self.account_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.account_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.account_table.setEditTriggers(QTableWidget.NoEditTriggers)  # Disable editing
         self.account_table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.account_table.customContextMenuRequested.connect(self.show_context_menu)
