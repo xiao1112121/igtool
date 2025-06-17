@@ -513,45 +513,77 @@ class AccountManagementTab(QWidget):
 
                     QMessageBox.information(self, "Thêm tài khoản", "Tài khoản đã được thêm thành công.")
 
-    def update_account_table(self, accounts_to_display: Optional[List[Dict[str, Union[str, bool]]]] = None) -> None:
+    def update_account_table(self, accounts_to_display=None):
         if accounts_to_display is None:
             accounts_to_display = self.accounts
 
-        self.account_table.blockSignals(True) # Block signals during update
+        self.account_table.blockSignals(True)  # Block signals to prevent itemChanged from firing
         self.account_table.setRowCount(len(accounts_to_display))
-        status_color_map = {
-            "Hoạt động": "#C8E6C9",
-            "Checkpoint": "#FFF9C4",
-            "Bị khóa": "#FFCDD2",
-            "Banned": "#E57373",
-            "Cần xác minh": "#B3E5FC",
-            "Đang nuôi": "#F0F4C3",
-            "Spam": "#FFECB3",
-            "Đang gửi tin nhắn": "#D1C4E9",
-            "Lỗi đăng nhập": "#FFAB91",
-            "Hết phiên": "#B0BEC5",
-            "Proxy lỗi": "#BCAAA4",
-            "Chưa kiểm tra": "#F5F5F5",
-            "Tạm dừng": "#BDBDBD",
-            "Mới thêm": "#AED581",
-        }
         for row_idx, account in enumerate(accounts_to_display):
-            username = str(account.get("username", ""))
-            current_folder = str(self.folder_map.get(username, "Tổng"))
-            # Cột 0: STT
-            self.account_table.setItem(row_idx, 0, QTableWidgetItem(str(row_idx + 1)))
-            # Cột 1: Tên người dùng
-            self.account_table.setItem(row_idx, 1, QTableWidgetItem(username))
-            # Cột 2: Thư mục
-            self.account_table.setItem(row_idx, 2, QTableWidgetItem(current_folder))
-            # Đổi màu dòng theo trạng thái
-            status = account.get("status", "")
-            color = status_color_map.get(status, "#FFFFFF")
-            for col in range(self.account_table.columnCount()):
-                item = self.account_table.item(row_idx, col)
-                if item:
-                    item.setBackground(QColor(color))
-        self.account_table.blockSignals(False) # Unblock signals
+            # Cột "Chọn" - KHÔNG setFlags kiểu checkbox nữa, chỉ để delegate vẽ
+            item_checkbox = QTableWidgetItem()
+            item_checkbox.setData(CheckboxDelegate.CheckboxStateRole, account.get("selected", False))
+            self.account_table.setItem(row_idx, 0, item_checkbox)  # Thiết lập item cho cột 0
+
+            # STT
+            stt_item = QTableWidgetItem(str(row_idx + 1))
+            stt_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 1, stt_item)
+
+            # Tên đăng nhập
+            username_item = QTableWidgetItem(account.get("username", ""))
+            username_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 2, username_item)
+
+            # Mật khẩu
+            password_item = QTableWidgetItem(account.get("password", ""))
+            password_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 3, password_item)
+
+            # Trạng thái
+            status_item = QTableWidgetItem(account.get("status", "Chưa đăng nhập"))
+            status_item.setTextAlignment(Qt.AlignCenter)
+            if account.get("status") == "Đăng nhập thất bại":
+                status_item.setForeground(QColor("red"))
+            elif account.get("status") == "Đã đăng nhập" or account.get("status") == "Live":
+                status_item.setForeground(QColor("green"))
+            elif account.get("status") == "Die":
+                status_item.setForeground(QColor("red"))  # Thêm màu đỏ cho trạng thái "Die"
+            else:
+                status_item.setForeground(QColor("black"))  # Mặc định màu đen
+            self.account_table.setItem(row_idx, 4, status_item)
+
+            # Proxy
+            proxy_item = QTableWidgetItem(account.get("proxy", ""))
+            proxy_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 5, proxy_item)
+
+            # Trạng thái Proxy
+            proxy_status_item = QTableWidgetItem(account.get("proxy_status", "Chưa kiểm tra"))
+            proxy_status_item.setTextAlignment(Qt.AlignCenter)
+            if account.get("proxy_status") == "Die":
+                proxy_status_item.setForeground(QColor("red"))
+            elif account.get("proxy_status") == "OK":
+                proxy_status_item.setForeground(QColor("green"))
+            else:
+                proxy_status_item.setForeground(QColor("black"))
+            self.account_table.setItem(row_idx, 6, proxy_status_item)
+
+            # Follower
+            follower_item = QTableWidgetItem(account.get("followers", ""))
+            follower_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 7, follower_item)
+
+            # Following
+            following_item = QTableWidgetItem(account.get("following", ""))
+            following_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 8, following_item)
+
+            # Hành động cuối
+            last_action_item = QTableWidgetItem(account.get("last_action", ""))
+            last_action_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 9, last_action_item)
+        self.account_table.blockSignals(False)  # Unblock signals
 
     def on_checkbox_clicked(self, row, new_state):
         # Hàm này được kết nối từ delegate để xử lý khi trạng thái checkbox thay đổi

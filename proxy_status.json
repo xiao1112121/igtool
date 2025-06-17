@@ -3,7 +3,7 @@
     "proxy": "142.111.48.150:6927:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "6.98s",
+    "speed": "3.26s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -11,7 +11,7 @@
     "proxy": "31.58.30.11:6593:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "6.47s",
+    "speed": "2.95s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -19,7 +19,7 @@
     "proxy": "198.12.112.132:5143:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.70s",
+    "speed": "3.59s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -35,7 +35,7 @@
     "proxy": "38.170.190.6:9357:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "8.15s",
+    "speed": "4.05s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -43,7 +43,7 @@
     "proxy": "154.30.250.127:5639:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.58s",
+    "speed": "3.41s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -59,7 +59,7 @@
     "proxy": "104.232.209.107:6065:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.97s",
+    "speed": "3.18s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -103,189 +103,189 @@
     "proxy": "31.58.30.11:6593:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "6.93s",
+    "speed": "2.93s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "38.170.190.6:9357:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.98s",
+    "speed": "4.05s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "192.186.176.123:8173:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.86s",
+    "speed": "4.20s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "154.30.250.127:5639:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.63s",
+    "speed": "3.35s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "198.46.161.208:5258:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "6.98s",
+    "speed": "2.82s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "142.111.48.150:6927:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "6.97s",
+    "speed": "2.77s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "198.12.112.132:5143:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.73s",
+    "speed": "3.42s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "38.153.135.14:5394:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "7.79s",
+    "speed": "3.94s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "104.253.77.181:5603:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "6.87s",
+    "speed": "2.94s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "104.232.209.107:6065:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "8.16s",
+    "speed": "3.41s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "124.243.141.205:25613",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "18.91s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBEC907D0>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25575",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "7.79s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DB8077390>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25724",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "5.45s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DB8075950>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25728",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.60s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBEC90B90>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25667",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.59s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBBB27ED0>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25763",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.59s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DB8075090>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25999",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.14s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBEC90550>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25885",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.59s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DB8582490>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25858",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "6.60s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DB8075BD0>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25523",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.59s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DB8582AD0>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25647",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.50s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DB8074410>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25717",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.49s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBEC90050>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25898",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "5.45s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DB8581590>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25572",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.59s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBBB279D0>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25502",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "1.96s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBEC90910>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25609",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.04s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBBB24CD0>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   },
   {
     "proxy": "124.243.141.205:25749",
     "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.60s",
-    "note": "Test: www.instagram.com"
+    "status": "Lỗi",
+    "speed": "",
+    "note": "HTTPSConnectionPool(host='www.instagram.com', port=443): Max retries exceeded with url: / (Caused by ProxyError('Unable to connect to proxy', NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x0000011DBBB27C50>: Failed to establish a new connection: [WinError 10061] 由于目标计算机积极拒绝，无法连接。')))"
   }
 ]
