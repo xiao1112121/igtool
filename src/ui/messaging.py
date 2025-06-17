@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
                             QProgressBar, QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
                             QSizePolicy, QStyledItemDelegate, QMenu)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent
-from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen
+from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QAction
 from src.ui.context_menus import MessagingContextMenu
 from src.ui.account_management import CheckboxDelegate
 
@@ -249,6 +249,7 @@ class MessagingTab(QWidget):
         # Đặt delegate checkbox giống tab Quản lý Tài khoản
         self.checkbox_delegate = CheckboxDelegate(self)
         self.account_table.setItemDelegateForColumn(0, self.checkbox_delegate)
+        self.checkbox_delegate.checkbox_clicked.connect(self.on_checkbox_clicked)
         
         # Footer thống kê
         stats_label = QLabel("Thành công: 0 | Thất bại: 0 | Chưa gửi: 0")
@@ -262,6 +263,9 @@ class MessagingTab(QWidget):
         layout.addWidget(right_panel, 65) 
 
         self.load_accounts()  # Nạp tài khoản khi khởi tạo
+
+        self.account_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.account_table.customContextMenuRequested.connect(self.show_context_menu)
 
     def _update_list_options(self):
         if self.username_radio.isChecked():
@@ -403,10 +407,11 @@ class MessagingTab(QWidget):
             QMessageBox.warning(self, "Cảnh báo", "Khoảng cách gửi tối thiểu phải là 5 giây!")
 
     def show_context_menu(self, pos):
-        """Hiển thị menu chuột phải."""
-        print(f"[DEBUG] show_context_menu được gọi tại vị trí: {pos}")
-        menu = MessagingContextMenu(self)
-        menu.exec(self.recipient_table.viewport().mapToGlobal(pos))
+        index = self.account_table.indexAt(pos)
+        context_row = index.row() if index.isValid() else None
+        menu = MessagingContextMenu(self, self.account_table, self.accounts)
+        menu.context_row = context_row
+        menu.exec(self.account_table.viewport().mapToGlobal(pos))
 
     def load_folder_list_to_combo(self):
         self.category_combo.clear()
@@ -459,10 +464,10 @@ class MessagingTab(QWidget):
             accounts_to_display = self.accounts
         self.account_table.setRowCount(len(accounts_to_display))
         for i, acc in enumerate(accounts_to_display):
-            # Cột 0: Checkbox (nếu cần, hoặc để trống)
-            chk = QTableWidgetItem()
-            chk.setCheckState(Qt.Checked if acc.get('checked', False) else Qt.Unchecked)
-            self.account_table.setItem(i, 0, chk)
+            # Cột 0: chỉ dùng delegate, không tạo QTableWidgetItem checkable nữa
+            item = QTableWidgetItem()
+            item.setData(CheckboxDelegate.CheckboxStateRole, acc.get("selected", False))
+            self.account_table.setItem(i, 0, item)
             # Cột 1: STT
             self.account_table.setItem(i, 1, QTableWidgetItem(str(i+1)))
             # Cột 2: Tên người dùng
@@ -473,6 +478,11 @@ class MessagingTab(QWidget):
             self.account_table.setItem(i, 4, QTableWidgetItem(str(acc.get("success", ""))))
             # Cột 5: Tình trạng
             self.account_table.setItem(i, 5, QTableWidgetItem(acc.get("state", "")))
+
+    def on_checkbox_clicked(self, row, new_state):
+        # Cập nhật trạng thái 'selected' trong dữ liệu gốc
+        if 0 <= row < len(self.accounts):
+            self.accounts[row]["selected"] = new_state
 
 if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication

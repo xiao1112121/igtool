@@ -146,6 +146,7 @@ class DataScannerTab(QWidget):
         # Đặt delegate checkbox giống tab Quản lý Tài khoản
         self.checkbox_delegate = CheckboxDelegate(self)
         self.account_table.setItemDelegateForColumn(0, self.checkbox_delegate)
+        self.checkbox_delegate.checkbox_clicked.connect(self.on_checkbox_clicked)
         top_layout.addWidget(self.account_table)
         # Bảng dưới
         bottom_group = QGroupBox("Kết quả quét")
@@ -304,12 +305,17 @@ class DataScannerTab(QWidget):
             accounts_to_display = self.accounts
         self.account_table.setRowCount(len(accounts_to_display))
         for i, acc in enumerate(accounts_to_display):
-            chk = QTableWidgetItem()
-            chk.setCheckState(Qt.Checked if acc.get('checked', False) else Qt.Unchecked)
-            self.account_table.setItem(i, 0, chk)
+            # Cột 0: chỉ dùng delegate, không tạo QTableWidgetItem checkable nữa
+            item = QTableWidgetItem()
+            item.setData(CheckboxDelegate.CheckboxStateRole, acc.get("selected", False))
+            self.account_table.setItem(i, 0, item)
+            # Cột 1: STT
             self.account_table.setItem(i, 1, QTableWidgetItem(str(i+1)))
+            # Cột 2: Tên người dùng
             self.account_table.setItem(i, 2, QTableWidgetItem(acc.get("username", "")))
+            # Cột 3: Trạng thái
             self.account_table.setItem(i, 3, QTableWidgetItem(acc.get("status", "")))
+            # Cột 4: Thành công
             self.account_table.setItem(i, 4, QTableWidgetItem(str(acc.get("success", ""))))
 
     def start_scan(self):
@@ -400,3 +406,8 @@ class DataScannerTab(QWidget):
 
     def on_folders_updated(self):
         self.load_folder_list_to_combo() 
+
+    def on_checkbox_clicked(self, row, new_state):
+        # Cập nhật trạng thái 'selected' trong dữ liệu gốc
+        if 0 <= row < len(self.accounts):
+            self.accounts[row]["selected"] = new_state 
