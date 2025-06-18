@@ -26,23 +26,10 @@
         "proxy_status": "OK"
     },
     {
-        "username": "allraalbuqeru",
-        "password": "rcgciwgqzcxd",
-        "proxy": "",
-        "selected": true,
-        "fullname": "",
-        "status": "Lỗi Captcha",
-        "gender": "-",
-        "followers": "",
-        "following": "",
-        "last_action": "",
-        "proxy_status": "Lỗi không xác định"
-    },
-    {
         "username": "ryanjacksongordon20115",
         "password": "iugsufsxsdgk",
         "proxy": "",
-        "selected": true,
+        "selected": false,
         "fullname": "",
         "status": "Chưa đăng nhập",
         "gender": "-",
@@ -55,7 +42,7 @@
         "username": "carla94pucci",
         "password": "need3543",
         "proxy": "",
-        "selected": false,
+        "selected": true,
         "fullname": "",
         "status": "Chưa đăng nhập",
         "gender": "-",

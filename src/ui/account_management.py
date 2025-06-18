@@ -26,7 +26,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 from seleniumwire import webdriver as wire_webdriver
 from seleniumwire.utils import decode
 from twocaptcha import TwoCaptcha
-from src.utils.captcha_handler import CaptchaHandler
 from src.ui.utils import random_delay, wait_for_element, wait_for_element_clickable, retry_operation
 from src.ui.context_menus import AccountContextMenu
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -170,7 +169,6 @@ class AccountManagementTab(QWidget):
         self.proxies = self.load_proxies()
         self.init_ui()
         self.update_account_table()
-        self.captcha_handler = CaptchaHandler('b452b70e7afcd461cbd3758dac95b3c0')  # Thêm dòng này
         # Đọc trạng thái sử dụng proxy từ file (nếu có)
         self.settings_file = "account_settings.json"
         self.use_proxy = True
@@ -196,8 +194,9 @@ class AccountManagementTab(QWidget):
         self.proxy_switch_slider.valueChanged.connect(self.on_proxy_switch_changed)
         self.update_proxy_switch_label()
 
-    def init_driver(self, proxy=None):
+    def init_driver(self, proxy=None, username=None):
         print("[DEBUG] Bắt đầu khởi tạo driver...")
+        from selenium.webdriver.chrome.options import Options
         options = Options()
         # Ẩn thanh địa chỉ, tab, menu, mở ở chế độ app window
         options.add_argument("--app=https://www.instagram.com/accounts/login/")
@@ -268,6 +267,11 @@ class AccountManagementTab(QWidget):
         else:
             print("[DEBUG] Không có proxy được cung cấp")
         print("[DEBUG] Đang khởi tạo Chrome driver...")
+        # Thêm user-data-dir riêng cho từng tài khoản nếu có username
+        if username:
+            profile_dir = os.path.abspath(f'sessions/{username}_profile')
+            os.makedirs(profile_dir, exist_ok=True)
+            options.add_argument(f'--user-data-dir={profile_dir}')
         try:
             driver = wire_webdriver.Chrome(seleniumwire_options=proxy_options, options=options)
             print("[DEBUG] Chrome driver đã được khởi tạo thành công")
@@ -275,62 +279,6 @@ class AccountManagementTab(QWidget):
         except Exception as e:
             print(f"[ERROR] Lỗi khi khởi tạo Chrome driver: {str(e)}")
             raise
-
-    def handle_recaptcha(self, driver, username):
-        """Xử lý reCAPTCHA khi gặp phải."""
-        try:
-            # Kiểm tra xem có reCAPTCHA không
-            recaptcha_frame = WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[src*='recaptcha']"))
-            )
-            print(f"[DEBUG] Phát hiện reCAPTCHA cho tài khoản {username}")
-
-            # Chuyển đến frame của reCAPTCHA
-            driver.switch_to.frame(recaptcha_frame)
-
-            # Lấy site key của reCAPTCHA
-            site_key = driver.find_element(By.CLASS_NAME, "g-recaptcha").get_attribute("data-sitekey")
-            print(f"[DEBUG] Site key của reCAPTCHA: {site_key}")
-
-            # Chuyển về frame chính
-            driver.switch_to.default_content()
-
-            # Gọi API 2captcha để giải captcha
-            solver = TwoCaptcha('b452b70e7afcd461cbd3758dac95b3c0')  # Sử dụng API key đã được cấu hình
-            try:
-                result = solver.recaptcha(
-                    sitekey=site_key,
-                    url=driver.current_url,
-                )
-                print(f"[DEBUG] Đã nhận kết quả từ 2captcha cho {username}")
-
-                # Điền kết quả vào reCAPTCHA
-                driver.execute_script(
-                    f'document.getElementById("g-recaptcha-response").innerHTML="{result["code"]}";'
-                )
-                print(f"[DEBUG] Đã điền kết quả reCAPTCHA cho {username}")
-
-                # Submit form
-                submit_button = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))
-                )
-                submit_button.click()
-                print(f"[DEBUG] Đã submit form sau khi giải reCAPTCHA cho {username}")
-
-                # Đợi một chút để xem kết quả
-                time.sleep(3)
-                return True
-
-            except Exception as e:
-                print(f"[ERROR] Lỗi khi giải reCAPTCHA cho {username}: {e}")
-                return False
-
-        except TimeoutException:
-            print(f"[DEBUG] Không tìm thấy reCAPTCHA cho {username}")
-            return True  # Không có reCAPTCHA, coi như thành công
-        except Exception as e:
-            print(f"[ERROR] Lỗi không xác định khi xử lý reCAPTCHA cho {username}: {e}")
-            return False
 
     def init_ui(self):
         main_layout = QHBoxLayout(self)
@@ -747,85 +695,62 @@ class AccountManagementTab(QWidget):
         password = account.get("password")
         proxy = account.get("proxy") if getattr(self, 'use_proxy', True) else None
         def _perform_login():
-            nonlocal driver
-            nonlocal proxy
-            login_status = "Thất bại"
-            proxy_status = "Chưa kiểm tra"
+            login_status = None
+            proxy_status = None
+            driver = None
             try:
                 print(f"[DEBUG] Bắt đầu đăng nhập cho tài khoản {username}")
-                # Khởi tạo driver với proxy nếu có
-                if proxy:
-                    current_proxy_info = next((p for p in self.proxies if f"{p.get('ip')}:{p.get('port')}:{p.get('user')}:{p.get('pass')}" == proxy), None)
-                    if current_proxy_info and current_proxy_info.get("status") == "Die":
-                        print(f"[WARN] Proxy {proxy} cho tài khoản {username} đang ở trạng thái Die, đang cố gắng gán proxy mới.")
-                        self._assign_new_proxy(account)
-                        proxy = account.get("proxy")  # Cập nhật proxy sau khi gán mới
-                        if not proxy:  # Nếu không tìm được proxy mới
-                            proxy_status = "Không có proxy khả dụng"
-                            return "Lỗi Proxy", proxy_status, None
-                    elif proxy == "":  # Nếu proxy là một chuỗi rỗng (người dùng không điền)
-                        print(f"[DEBUG] Tài khoản {username} không sử dụng proxy.")
-                        proxy = None  # Đặt proxy về None để init_driver không dùng proxy
-                    elif proxy is None and self.proxies:  # Nếu proxy là None và có proxy khả dụng
-                        print(f"[DEBUG] Tài khoản {username} chưa có proxy, đang cố gắng gán proxy mới từ danh sách.")
-                        self._assign_new_proxy(account)
-                        proxy = account.get("proxy")  # Cập nhật proxy sau khi gán mới
-                        if not proxy:  # Nếu không tìm được proxy mới
-                            proxy_status = "Không có proxy khả dụng"
-                            return "Lỗi Proxy", proxy_status, None
-                    elif proxy is None and not self.proxies:  # Nếu proxy là None và không có proxy khả dụng
-                        print(f"[DEBUG] Tài khoản {username} không sử dụng proxy (hoặc không có proxy nào được tải).")
-                        proxy = None  # Đặt proxy về None để init_driver không dùng proxy
-
-                # Đảm bảo proxy đã được gán giá trị trước khi sử dụng
-                if proxy is None:
-                    proxy = None  # Đảm bảo proxy là None nếu không có proxy nào được gán
-
-                driver = self.init_driver(proxy)
-
-                # Đặt vị trí và kích thước cửa sổ nếu có
+                driver = self.init_driver(proxy, username=username)
                 if window_position:
                     x, y, width, height = window_position
                     driver.set_window_rect(x, y, width, height)
                     print(f"[DEBUG] Đã đặt vị trí cửa sổ cho {username} tại ({x}, {y}, {width}, {height})")
-
-                # Truy cập trang đăng nhập Instagram
-                driver.get("https://www.instagram.com/accounts/login/")
-                print(f"[DEBUG] Đã truy cập trang đăng nhập cho {username}")
-                # --- Tắt popup/banner nếu có ---
-                self.close_popups(driver)
-
-                # Chờ và chấp nhận cookie nếu banner xuất hiện
-                try:
-                    accept_cookies_button = wait_for_element_clickable(driver, By.XPATH, "//button[text()='Cho phép tất cả cookie'] | //button[text()='Accept All'] | //button[text()='Allow all cookies']", timeout=3)
-                    if accept_cookies_button:
-                        print(f"[DEBUG] Đã chấp nhận cookie cho {username}.")
-                        random_delay(0.3, 0.7)
-                except Exception as e:
-                    print(f"[DEBUG] Không tìm thấy hoặc không thể click nút chấp nhận cookie cho {username}: {e}")
-
-                # Đợi cho trang đăng nhập tải xong
-                username_input = wait_for_element(driver, By.NAME, "username", timeout=5)
-                if not username_input:
-                    raise Exception("Không thể tìm thấy ô nhập username")
-                print(f"[DEBUG] Trang đăng nhập đã tải xong cho {username}")
-
-                # Điền thông tin đăng nhập
-                password_input = wait_for_element(driver, By.NAME, "password", timeout=3)
-                if not password_input:
-                    raise Exception("Không thể tìm thấy ô nhập password")
-
-                random_delay(0.2, 0.5)
-                # Nhập username từng ký tự
+                # --- Ưu tiên dùng profile cũ (user-data-dir) và cookies ---
+                driver.get("https://www.instagram.com/")
+                cookies_loaded = self.load_cookies(driver, username)
+                if cookies_loaded:
+                    print(f"[DEBUG] Đã load cookies cho {username}, thử vào Instagram không cần nhập lại.")
+                    driver.refresh()
+                    time.sleep(2)
+                    if not detect_checkpoint_or_captcha(driver) and driver.current_url.startswith("https://www.instagram.com/") and not "login" in driver.current_url:
+                        print(f"[INFO] Đăng nhập thành công bằng session/profile cho {username}!")
+                        login_status = "Đã đăng nhập"
+                        proxy_status = "OK"
+                        self.save_cookies(driver, username)
+                        return login_status, proxy_status, driver
+                    else:
+                        print(f"[DEBUG] Session/profile không hợp lệ hoặc cần đăng nhập lại cho {username}.")
+                # Nếu chưa đăng nhập, mới nhập lại tài khoản/mật khẩu
+                # ... phần nhập username/password như cũ ...
+                # Sau khi đăng nhập thành công, lưu lại cookies
+                if driver.current_url.startswith("https://www.instagram.com/") and not "login" in driver.current_url:
+                    self.save_cookies(driver, username)
+                # ... phần nhập username/password như cũ ...
+                # Sau khi nhập username từng ký tự
                 for c in username:
+                    username_input = wait_for_element(driver, By.NAME, "username", timeout=5)
+                    if not username_input:
+                        raise Exception("Không thể tìm thấy ô nhập username")
                     username_input.send_keys(c)
                     time.sleep(random.uniform(0.05, 0.13))
-
                 random_delay(0.1, 0.2)
-                # Nhập password từng ký tự
+                # Sau khi nhập password từng ký tự
                 for c in password:
+                    password_input = wait_for_element(driver, By.NAME, "password", timeout=3)
+                    if not password_input:
+                        raise Exception("Không thể tìm thấy ô nhập password")
                     password_input.send_keys(c)
                     time.sleep(random.uniform(0.05, 0.13))
+                # Kiểm tra checkpoint/captcha sau khi nhập xong
+                if detect_checkpoint_or_captcha(driver):
+                    from PySide6.QtWidgets import QMessageBox
+                    msg_box = QMessageBox()
+                    msg_box.setWindowTitle("Captcha/Xác minh")
+                    msg_box.setText("Phát hiện captcha hoặc checkpoint/xác minh. Vui lòng thao tác thủ công trên trình duyệt, sau đó nhấn 'Tiếp tục' để hoàn tất đăng nhập.")
+                    msg_box.setStandardButtons(QMessageBox.Ok)
+                    msg_box.button(QMessageBox.Ok).setText("Tiếp tục")
+                    msg_box.exec()
+                    print("[DEBUG] User đã nhấn Tiếp tục sau khi giải captcha/checkpoint.")
 
                 random_delay(0.3, 0.7)
                 login_button = wait_for_element(driver, By.CSS_SELECTOR, "button[type='submit']", timeout=5)
@@ -833,6 +758,16 @@ class AccountManagementTab(QWidget):
                     raise Exception("Không thể tìm thấy nút đăng nhập")
                 driver.execute_script("arguments[0].click();", login_button)
                 print(f"[DEBUG] Đã click nút đăng nhập cho {username} bằng JavaScript")
+                # Kiểm tra checkpoint/captcha sau khi click login
+                if detect_checkpoint_or_captcha(driver):
+                    from PySide6.QtWidgets import QMessageBox
+                    msg_box = QMessageBox()
+                    msg_box.setWindowTitle("Captcha/Xác minh")
+                    msg_box.setText("Phát hiện captcha hoặc checkpoint/xác minh. Vui lòng thao tác thủ công trên trình duyệt, sau đó nhấn 'Tiếp tục' để hoàn tất đăng nhập.")
+                    msg_box.setStandardButtons(QMessageBox.Ok)
+                    msg_box.button(QMessageBox.Ok).setText("Tiếp tục")
+                    msg_box.exec()
+                    print("[DEBUG] User đã nhấn Tiếp tục sau khi giải captcha/checkpoint.")
 
                 # Xử lý pop-up "Lưu thông tin đăng nhập"
                 try:
@@ -1402,7 +1337,7 @@ class AccountManagementTab(QWidget):
             QMessageBox.information(self, "Thành công", "Đã xóa tất cả tài khoản!")
 
     def close_popups(self, driver):
-        import time
+        # import time  # XÓA DÒNG NÀY
         from selenium.webdriver.common.by import By
         close_selectors = [
             # Banner "Chrome controlled"
@@ -1426,7 +1361,7 @@ class AccountManagementTab(QWidget):
                     btn = driver.find_element(By.XPATH, sel)
                     btn.click()
                     print(f"[DEBUG] Đã tắt popup với selector: {sel}")
-                    time.sleep(0.2)
+                    # time.sleep(0.2)  # XÓA DÒNG NÀY
                 except Exception:
                     continue
         # Inject CSS ẩn
@@ -1474,3 +1409,41 @@ class AccountManagementTab(QWidget):
         except Exception as e:
             print(f"[WARN] Không thể lưu trạng thái sử dụng proxy khi đóng ứng dụng: {e}")
         super().closeEvent(event)
+
+    def save_cookies(self, driver, username):
+        os.makedirs('sessions', exist_ok=True)
+        cookies = driver.get_cookies()
+        with open(f'sessions/{username}_cookies.json', 'w', encoding='utf-8') as f:
+            json.dump(cookies, f)
+
+    def load_cookies(self, driver, username):
+        cookies_path = f'sessions/{username}_cookies.json'
+        if os.path.exists(cookies_path):
+            with open(cookies_path, 'r', encoding='utf-8') as f:
+                cookies = json.load(f)
+            for cookie in cookies:
+                # Selenium yêu cầu phải ở đúng domain mới add được cookie
+                driver.add_cookie(cookie)
+            return True
+        return False
+
+# Thêm hàm nhận diện captcha/checkpoint đa ngôn ngữ
+
+def detect_checkpoint_or_captcha(driver):
+    keywords = [
+        "captcha", "robot", "security", "checkpoint", "verify", "xác minh", "bảo mật",
+        "本人確認", "協力", "確認", "アカウント", "不審なアクティビティ", "制限", "ステップ"
+    ]
+    try:
+        page_text = driver.page_source.lower()
+        for kw in keywords:
+            if kw.lower() in page_text:
+                return True
+        # Kiểm tra iframe recaptcha/hcaptcha
+        if driver.find_elements(By.CSS_SELECTOR, "iframe[src*='recaptcha']"):
+            return True
+        if driver.find_elements(By.CSS_SELECTOR, "iframe[src*='hcaptcha']"):
+            return True
+    except Exception:
+        pass
+    return False

@@ -70,62 +70,6 @@ def handle_login_popups(driver, username):
     except TimeoutException:
         print(f"[DEBUG] Không tìm thấy popup thông báo cho {username}")
 
-def handle_recaptcha(driver, username, api_key):
-    """Xử lý reCAPTCHA khi gặp phải."""
-    try:
-        # Kiểm tra xem có reCAPTCHA không
-        recaptcha_frame = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[src*='recaptcha']"))
-        )
-        print(f"[DEBUG] Phát hiện reCAPTCHA cho tài khoản {username}")
-
-        # Chuyển đến frame của reCAPTCHA
-        driver.switch_to.frame(recaptcha_frame)
-
-        # Lấy site key của reCAPTCHA
-        site_key = driver.find_element(By.CLASS_NAME, "g-recaptcha").get_attribute("data-sitekey")
-        print(f"[DEBUG] Site key của reCAPTCHA: {site_key}")
-
-        # Chuyển về frame chính
-        driver.switch_to.default_content()
-
-        # Gọi API 2captcha để giải captcha
-        solver = TwoCaptcha(api_key)
-        try:
-            result = solver.recaptcha(
-                sitekey=site_key,
-                url=driver.current_url,
-            )
-            print(f"[DEBUG] Đã nhận kết quả từ 2captcha cho {username}")
-
-            # Điền kết quả vào reCAPTCHA
-            driver.execute_script(
-                f'document.getElementById("g-recaptcha-response").innerHTML="{result["code"]}";'
-            )
-            print(f"[DEBUG] Đã điền kết quả reCAPTCHA cho {username}")
-
-            # Submit form
-            submit_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))
-            )
-            submit_button.click()
-            print(f"[DEBUG] Đã submit form sau khi giải reCAPTCHA cho {username}")
-
-            # Đợi một chút để xem kết quả
-            time.sleep(3)
-            return True
-
-        except Exception as e:
-            print(f"[ERROR] Lỗi khi giải reCAPTCHA cho {username}: {e}")
-            return False
-
-    except TimeoutException:
-        print(f"[DEBUG] Không tìm thấy reCAPTCHA cho {username}")
-        return True  # Không có reCAPTCHA, coi như thành công
-    except Exception as e:
-        print(f"[ERROR] Lỗi không xác định khi xử lý reCAPTCHA cho {username}: {e}")
-        return False
-
 def verify_login_success(driver, username):
     """Xác minh đăng nhập thành công."""
     try:
