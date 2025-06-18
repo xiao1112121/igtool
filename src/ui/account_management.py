@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QLineEdit, QTextEdit, QFileDialog, QMessageBox,
     QProgressBar, QComboBox, QCheckBox, QSpinBox, QGroupBox,
     QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
-    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog)
+    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog, QSlider)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QGuiApplication, QAction
 from selenium import webdriver
@@ -171,6 +171,30 @@ class AccountManagementTab(QWidget):
         self.init_ui()
         self.update_account_table()
         self.captcha_handler = CaptchaHandler('b452b70e7afcd461cbd3758dac95b3c0')  # Thêm dòng này
+        # Đọc trạng thái sử dụng proxy từ file (nếu có)
+        self.settings_file = "account_settings.json"
+        self.use_proxy = True
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, "r", encoding="utf-8") as f:
+                    settings = json.load(f)
+                    self.use_proxy = settings.get("use_proxy", True)
+        except Exception as e:
+            print(f"[WARN] Không thể đọc trạng thái sử dụng proxy: {e}")
+        # Thay thế checkbox bằng drag switch (QSlider)
+        self.proxy_switch_layout = QHBoxLayout()
+        self.proxy_switch_label = QLabel("Proxy: OFF")
+        self.proxy_switch_slider = QSlider(Qt.Horizontal)
+        self.proxy_switch_slider.setMinimum(0)
+        self.proxy_switch_slider.setMaximum(1)
+        self.proxy_switch_slider.setSingleStep(1)
+        self.proxy_switch_slider.setFixedWidth(80)
+        self.proxy_switch_slider.setValue(1 if self.use_proxy else 0)
+        self.proxy_switch_layout.addWidget(self.proxy_switch_label)
+        self.proxy_switch_layout.addWidget(self.proxy_switch_slider)
+        self.sidebar_layout.addLayout(self.proxy_switch_layout)
+        self.proxy_switch_slider.valueChanged.connect(self.on_proxy_switch_changed)
+        self.update_proxy_switch_label()
 
     def init_driver(self, proxy=None):
         print("[DEBUG] Bắt đầu khởi tạo driver...")
@@ -687,16 +711,22 @@ class AccountManagementTab(QWidget):
                         print(f"[ERROR] login_instagram_and_get_info trả về None cho {account.get('username', 'N/A') }.")
                         login_status = "Lỗi không xác định (None)"
                         proxy_status = "Lỗi không xác định"
-                    elif isinstance(result, tuple) and len(result) == 2:
-                        login_status, proxy_status = result
+                        driver = None
+                    elif isinstance(result, tuple) and len(result) == 3:
+                        login_status, proxy_status, driver = result
                         account["status"] = login_status
                         account["proxy_status"] = proxy_status
-                        if login_status == "Đã đăng nhập":
+                        if login_status == "Đã đăng nhập" and driver is not None:
+                            # Xóa driver cũ nếu đã tồn tại cho username này
+                            self.active_drivers = [d for d in self.active_drivers if not (isinstance(d, dict) and d.get("username") == account.get("username"))]
+                            self.active_drivers.append({"username": account.get("username"), "driver": driver})
+                            print(f"[DEBUG] Đã lưu driver cho {account.get('username')} vào active_drivers.")
                             self.save_accounts()
                     else:
-                        print(f"[ERROR] Kết quả trả về không đúng định dạng cho {account.get('username', 'N/A')}. Expected (status, proxy_status), got: {result}")
+                        print(f"[ERROR] Kết quả trả về không đúng định dạng cho {account.get('username', 'N/A')}. Expected (status, proxy_status, driver), got: {result}")
                         login_status = "Lỗi dữ liệu trả về"
                         proxy_status = "Lỗi không xác định"
+                        driver = None
                     account["status"] = login_status
                     account["proxy_status"] = proxy_status
                 except Exception as e:
@@ -715,7 +745,7 @@ class AccountManagementTab(QWidget):
         driver = None
         username = account.get("username")
         password = account.get("password")
-        proxy = account.get("proxy")
+        proxy = account.get("proxy") if getattr(self, 'use_proxy', True) else None
         def _perform_login():
             nonlocal driver
             nonlocal proxy
@@ -732,7 +762,7 @@ class AccountManagementTab(QWidget):
                         proxy = account.get("proxy")  # Cập nhật proxy sau khi gán mới
                         if not proxy:  # Nếu không tìm được proxy mới
                             proxy_status = "Không có proxy khả dụng"
-                            return "Lỗi Proxy", proxy_status
+                            return "Lỗi Proxy", proxy_status, None
                     elif proxy == "":  # Nếu proxy là một chuỗi rỗng (người dùng không điền)
                         print(f"[DEBUG] Tài khoản {username} không sử dụng proxy.")
                         proxy = None  # Đặt proxy về None để init_driver không dùng proxy
@@ -742,7 +772,7 @@ class AccountManagementTab(QWidget):
                         proxy = account.get("proxy")  # Cập nhật proxy sau khi gán mới
                         if not proxy:  # Nếu không tìm được proxy mới
                             proxy_status = "Không có proxy khả dụng"
-                            return "Lỗi Proxy", proxy_status
+                            return "Lỗi Proxy", proxy_status, None
                     elif proxy is None and not self.proxies:  # Nếu proxy là None và không có proxy khả dụng
                         print(f"[DEBUG] Tài khoản {username} không sử dụng proxy (hoặc không có proxy nào được tải).")
                         proxy = None  # Đặt proxy về None để init_driver không dùng proxy
@@ -767,134 +797,97 @@ class AccountManagementTab(QWidget):
 
                 # Chờ và chấp nhận cookie nếu banner xuất hiện
                 try:
-                    accept_cookies_button = wait_for_element_clickable(driver, By.XPATH, "//button[text()='Cho phép tất cả cookie'] | //button[text()='Accept All'] | //button[text()='Allow all cookies']", timeout=5)
+                    accept_cookies_button = wait_for_element_clickable(driver, By.XPATH, "//button[text()='Cho phép tất cả cookie'] | //button[text()='Accept All'] | //button[text()='Allow all cookies']", timeout=3)
                     if accept_cookies_button:
                         print(f"[DEBUG] Đã chấp nhận cookie cho {username}.")
-                        random_delay(1, 2)  # Chờ một chút sau khi click
+                        random_delay(0.3, 0.7)
                 except Exception as e:
                     print(f"[DEBUG] Không tìm thấy hoặc không thể click nút chấp nhận cookie cho {username}: {e}")
 
                 # Đợi cho trang đăng nhập tải xong
-                username_input = wait_for_element(driver, By.NAME, "username", timeout=10)
+                username_input = wait_for_element(driver, By.NAME, "username", timeout=5)
                 if not username_input:
                     raise Exception("Không thể tìm thấy ô nhập username")
                 print(f"[DEBUG] Trang đăng nhập đã tải xong cho {username}")
 
                 # Điền thông tin đăng nhập
-                password_input = wait_for_element(driver, By.NAME, "password", timeout=5)
+                password_input = wait_for_element(driver, By.NAME, "password", timeout=3)
                 if not password_input:
                     raise Exception("Không thể tìm thấy ô nhập password")
 
-                random_delay()
-                username_input.send_keys(username)
+                random_delay(0.2, 0.5)
+                # Nhập username từng ký tự
+                for c in username:
+                    username_input.send_keys(c)
+                    time.sleep(random.uniform(0.05, 0.13))
 
-                random_delay()
-                password_input.send_keys(password)
+                random_delay(0.1, 0.2)
+                # Nhập password từng ký tự
+                for c in password:
+                    password_input.send_keys(c)
+                    time.sleep(random.uniform(0.05, 0.13))
 
-                random_delay(1, 2)  # Thêm một độ trễ ngắn trước khi click nút đăng nhập
-                login_button = wait_for_element(driver, By.CSS_SELECTOR, "button[type='submit']", timeout=10)
+                random_delay(0.3, 0.7)
+                login_button = wait_for_element(driver, By.CSS_SELECTOR, "button[type='submit']", timeout=5)
                 if not login_button:
                     raise Exception("Không thể tìm thấy nút đăng nhập")
-                driver.execute_script("arguments[0].click();", login_button)  # Click bằng JavaScript
+                driver.execute_script("arguments[0].click();", login_button)
                 print(f"[DEBUG] Đã click nút đăng nhập cho {username} bằng JavaScript")
 
-                # Thêm xử lý cho pop-up "Lưu thông tin đăng nhập"
+                # Xử lý pop-up "Lưu thông tin đăng nhập"
                 try:
                     not_now_button_xpath = (
                         "//button[text()='Not Now'] | "
                         "//button[text()='Lúc khác'] | "
-                        "//button[text()='Später'] | "  # German "Later"
-                        "//button[text()='Más tarde'] | "  # Spanish "Later"
-                        "//button[text()='Jetzt nicht'] | "  # German "Not now"
-                        "//button[contains(.,'Not Now')] | "  # More general contains
-                        "//button[contains(.,'Lúc khác')] | "  # More general contains
-                        "//div[text()='Lưu thông tin đăng nhập?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Lúc khác')] | "  # Specific for login info save prompt (Vietnamese)
-                        "//div[text()='Save your login info?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Not Now')]"  # Specific for login info save prompt (English)
+                        "//button[text()='Später'] | "
+                        "//button[text()='Más tarde'] | "
+                        "//button[text()='Jetzt nicht'] | "
+                        "//button[contains(.,'Not Now')] | "
+                        "//button[contains(.,'Lúc khác')] | "
+                        "//div[text()='Lưu thông tin đăng nhập?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Lúc khác')] | "
+                        "//div[text()='Save your login info?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Not Now')]"
                     )
-                    not_now_button = wait_for_element_clickable(driver, By.XPATH, not_now_button_xpath, timeout=7)  # Tăng timeout
+                    not_now_button = wait_for_element_clickable(driver, By.XPATH, not_now_button_xpath, timeout=3)
                     if not_now_button:
                         print(f"[DEBUG] Đã click nút 'Not Now' (lưu thông tin đăng nhập) cho {username}.")
-                        random_delay(1, 2)  # Chờ một chút sau khi click
+                        random_delay(0.2, 0.5)
                 except Exception as e:
                     print(f"[DEBUG] Không tìm thấy hoặc không thể click nút 'Not Now' (lưu thông tin đăng nhập) cho {username}: {e}")
 
-                # Thêm xử lý cho pop-up "Bật thông báo" (nếu có)
+                # Xử lý pop-up "Bật thông báo"
                 try:
                     turn_on_notifications_not_now_xpath = (
                         "//button[text()='Not Now'] | "
                         "//button[text()='Lúc khác'] | "
                         "//button[text()='Später'] | "
-                        "//button[text()='Ahora no'] | "  # Spanish "Not now"
+                        "//button[text()='Ahora no'] | "
                         "//button[contains(.,'Not Now')] | "
                         "//button[contains(.,'Lúc khác')] | "
-                        "//div[text()='Turn on notifications?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Not Now')] | "  # Specific for notifications prompt (English)
-                        "//div[text()='Bật thông báo?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Lúc khác')]"  # Specific for notifications prompt (Vietnamese)
+                        "//div[text()='Turn on notifications?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Not Now')] | "
+                        "//div[text()='Bật thông báo?']/ancestor::div[contains(@class, 'x1n2onr6')]//button[contains(.,'Lúc khác')]"
                     )
-                    turn_on_notifications_not_now_button = wait_for_element_clickable(driver, By.XPATH, turn_on_notifications_not_now_xpath, timeout=7)  # Tăng timeout
+                    turn_on_notifications_not_now_button = wait_for_element_clickable(driver, By.XPATH, turn_on_notifications_not_now_xpath, timeout=3)
                     if turn_on_notifications_not_now_button:
                         print(f"[DEBUG] Đã click nút 'Not Now' (thông báo) cho {username}.")
-                        random_delay(1, 2)  # Chờ một chút sau khi click
+                        random_delay(0.2, 0.5)
                 except Exception as e:
                     print(f"[DEBUG] Không tìm thấy hoặc không thể click nút 'Not Now' (thông báo) cho {username}: {e}")
 
-                # Đợi một chút để xem có CAPTCHA không
-                random_delay(2, 4)
+                # Đợi một chút để xem có CAPTCHA không (giảm delay)
+                random_delay(0.5, 1.2)
 
-                # Kiểm tra và xử lý reCAPTCHA/hCaptcha nếu có
+                # --- Tối ưu vòng lặp chờ avatar/profile ---
                 try:
-                    # Chờ cho reCAPTCHA frame xuất hiện (nếu có)
-                    recaptcha_frame = WebDriverWait(driver, 5).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[src*='recaptcha']"))
-                    )
-                    print(f"[DEBUG] Phát hiện reCAPTCHA cho tài khoản {username}")
-
-                    # Gọi CaptchaHandler để giải captcha
-                    if not self.captcha_handler.handle_recaptcha(driver, username):
-                        print("[ERROR] Không thể giải captcha")
-                        login_status = "Lỗi Captcha"
-                        proxy_status = "Lỗi không xác định"
-                        return login_status, proxy_status
-                    else:
-                        print(f"[DEBUG] Đã xử lý reCAPTCHA thành công cho tài khoản {username}.")
-                        # Sau khi giải captcha, driver có thể đã chuyển trang hoặc cần chờ thêm
-                        # Đợi cho các trường đăng nhập xuất hiện trở lại
-                        if not wait_for_element(driver, By.NAME, "username"):
-                            print("[ERROR] Không thể tìm thấy ô nhập username sau khi giải captcha")
-                            login_status = "Không tìm thấy username input sau Captcha"
-                            proxy_status = "Lỗi không xác định"
-                            return login_status, proxy_status
-
-                except TimeoutException:
-                    print(f"[DEBUG] Không tìm thấy reCAPTCHA cho tài khoản {username}.")
-                except Exception as e:
-                    print(f"[ERROR] Lỗi không xác định khi xử lý reCAPTCHA cho {username}: {e}")
-                    login_status = "Lỗi không xác định Captcha"
-                    proxy_status = "Lỗi không xác định"
-                    return login_status, proxy_status
-
-                # Sau khi click nút đăng nhập
-                # Đợi chuyển hướng hoặc xuất hiện biểu tượng Home
-                login_success_flag = False
-                try:
-                    # Sau khi click đăng nhập, kiểm tra cực nhanh sự xuất hiện của avatar profile (vòng tròn góc phải)
-                    import random
-                    def fast_find_avatar(driver, timeout=1.2):
-                        import time
+                    def fast_find_avatar(driver, timeout=0.7):
                         start = time.time()
                         avatar_selectors = [
-                            # 1. Avatar ở góc phải dưới (menu profile)
                             "//span[@data-testid='user-avatar']",
                             "//div[@role='button']//span[@data-testid='user-avatar']",
-                            # 2. Avatar ở header profile
                             "//header//img[contains(@alt, 'profile') or contains(@src, 'profile')]",
-                            # 3. Avatar mặc định (có thể là svg hoặc img không alt)
                             "//img[contains(@src, 's150x150')]",
                             "//img[contains(@src, 'default_profile')]",
-                            # 4. Avatar có border (thường là div có border-radius)
                             "//div[contains(@style, 'border-radius')]//img",
-                            # 5. Avatar trong menu (mobile/desktop)
                             "//nav//img",
-                            # 6. Avatar fallback: bất kỳ img nào trong header
                             "//header//img",
                         ]
                         while time.time() - start < timeout:
@@ -905,41 +898,37 @@ class AccountManagementTab(QWidget):
                                         return elem
                                 except Exception:
                                     continue
-                            time.sleep(0.05)
+                            time.sleep(0.03)
                         return None
 
-                    avatar_btn = fast_find_avatar(driver, timeout=1.2)
+                    avatar_btn = fast_find_avatar(driver, timeout=0.7)
                     if not avatar_btn:
-                        # Thử click menu profile (nếu có) rồi thử lại
                         try:
                             menu_btn = driver.find_element(By.XPATH, "//div[@role='button' and @tabindex='0']")
                             if menu_btn.is_displayed():
                                 driver.execute_script("arguments[0].click();", menu_btn)
                                 print("[DEBUG] Đã click menu profile để lộ avatar.")
-                                avatar_btn = fast_find_avatar(driver, timeout=0.7)
+                                avatar_btn = fast_find_avatar(driver, timeout=0.3)
                         except Exception:
                             pass
                     if not avatar_btn:
-                        # Thử reload lại trang chủ 1 lần rồi thử lại
                         driver.get("https://www.instagram.com/")
                         self.close_popups(driver)
-                        avatar_btn = fast_find_avatar(driver, timeout=1.2)
+                        avatar_btn = fast_find_avatar(driver, timeout=0.7)
                     if not avatar_btn:
                         print("[ERROR] Không tìm thấy avatar profile sau đăng nhập (tối ưu selector).")
                         driver.quit()
-                        return "Không xác nhận đăng nhập", "Lỗi không xác định"
-                    # Click avatar
+                        return "Không xác nhận đăng nhập", "Lỗi không xác định", None
                     try:
                         driver.execute_script("arguments[0].click();", avatar_btn)
                         print("[DEBUG] Đã click vào avatar profile (tối ưu selector).")
                     except Exception as e:
                         print(f"[ERROR] Không thể click avatar: {e}")
                         driver.quit()
-                        return "Lỗi click avatar", "Lỗi không xác định"
-                    # Chờ profile load (URL đổi hoặc header xuất hiện)
+                        return "Lỗi click avatar", "Lỗi không xác định", None
                     import re
                     profile_loaded = False
-                    for _ in range(12):  # 1.2s, mỗi lần 0.1s
+                    for _ in range(8):  # Giảm số lần lặp, mỗi lần 0.07s
                         url = driver.current_url
                         if re.search(r"instagram\\.com/[^/?#]+/?$", url):
                             profile_loaded = True
@@ -951,11 +940,11 @@ class AccountManagementTab(QWidget):
                                 break
                         except Exception:
                             pass
-                        import time; time.sleep(0.1)
+                        time.sleep(0.07)
                     if not profile_loaded:
                         print("[ERROR] Không load được profile sau khi click avatar (tối ưu selector).")
                         driver.quit()
-                        return "Không xác nhận được profile", "Lỗi không xác định"
+                        return "Không xác nhận được profile", "Lỗi không xác định", None
                     # Lấy username từ URL hoặc header
                     profile_username = None
                     url = driver.current_url
@@ -970,33 +959,34 @@ class AccountManagementTab(QWidget):
                             print(f"[DEBUG] Username lấy từ header: {profile_username}")
                         except Exception:
                             print("[ERROR] Không lấy được username từ header profile.")
-                    # So sánh username (không try lồng nhau)
                     if profile_username and profile_username.lower() == username.lower():
                         print("[INFO] Đăng nhập thành công, username khớp!")
                         login_status = "Đã đăng nhập"
                         proxy_status = "OK"
                         account["status"] = "Đã đăng nhập"
                         account["last_action"] = "Đăng nhập"
-                        return login_status, proxy_status
+                        return login_status, proxy_status, driver
                     else:
                         print("[ERROR] Username trên profile không khớp hoặc không lấy được!")
                         login_status = "Không xác nhận được profile"
                         proxy_status = "Lỗi không xác định"
                         account["last_action"] = "Không xác nhận profile"
-                        return login_status, proxy_status
+                        return login_status, proxy_status, None
                 except Exception as e:
                     login_status = "Lỗi không xác định"
-                return login_status, proxy_status
+                    proxy_status = "Lỗi không xác định"
+                    return login_status, proxy_status, None
             finally:
-                if driver:
+                # Chỉ quit driver nếu đăng nhập thất bại và KHÔNG phải trạng thái cần giữ cửa sổ cho captcha
+                if driver and login_status not in ["Đã đăng nhập", "Cần giải Captcha thủ công"]:
                     try:
                         driver.quit()
                         print(f"[DEBUG] Đã đóng trình duyệt cho {username}")
                     except Exception as e:
                         print(f"[WARN] Lỗi khi đóng driver: {e}")
-
         # Thực hiện đăng nhập với logic thử lại
-        return retry_operation(_perform_login, max_retries=max_retries, retry_delay=retry_delay)
+        login_status, proxy_status, driver = _perform_login()
+        return login_status, proxy_status, driver
 
     def close_all_drivers(self):
         for driver in self.active_drivers:
@@ -1456,3 +1446,31 @@ class AccountManagementTab(QWidget):
                     json.dump(self.folder_map, f, ensure_ascii=False, indent=2)
             except Exception as e:
                 print(f"[ERROR] Lỗi khi lưu folder_map: {e}")
+
+    def on_proxy_switch_changed(self, value):
+        self.use_proxy = bool(value)
+        self.update_proxy_switch_label()
+        # Lưu trạng thái vào file
+        try:
+            with open(self.settings_file, "w", encoding="utf-8") as f:
+                json.dump({"use_proxy": self.use_proxy}, f)
+        except Exception as e:
+            print(f"[WARN] Không thể lưu trạng thái sử dụng proxy: {e}")
+        print(f"[DEBUG] Trạng thái sử dụng proxy: {self.use_proxy}")
+
+    def update_proxy_switch_label(self):
+        if self.use_proxy:
+            self.proxy_switch_label.setText("Proxy: ON")
+            self.proxy_switch_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        else:
+            self.proxy_switch_label.setText("Proxy: OFF")
+            self.proxy_switch_label.setStyleSheet("color: #888; font-weight: bold;")
+
+    def closeEvent(self, event):
+        # Lưu trạng thái sử dụng proxy khi đóng ứng dụng
+        try:
+            with open(self.settings_file, "w", encoding="utf-8") as f:
+                json.dump({"use_proxy": self.use_proxy}, f)
+        except Exception as e:
+            print(f"[WARN] Không thể lưu trạng thái sử dụng proxy khi đóng ứng dụng: {e}")
+        super().closeEvent(event)

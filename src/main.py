@@ -63,6 +63,7 @@ print("[DEBUG] main.py: Tất cả các module đã được nhập thành công
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.pixel_ruler = None
         print("[DEBUG] MainWindow: Bắt đầu khởi tạo.")
         self.setWindowTitle("Instagram Automation Tool")
         self.setGeometry(100, 100, 1200, 800)
@@ -95,9 +96,9 @@ class MainWindow(QMainWindow):
         
         print("[DEBUG] MainWindow: Đang khởi tạo MessagingTab.")
         try:
-            self.messaging_tab = MessagingTab()
+            self.messaging_tab = MessagingTab(self.account_tab)
             self.tab_widget.addTab(self.messaging_tab, "Nhắn tin")
-            print("[DEBUG] MainWindow: Đã khởi tạo MessagingTab thành công.")
+            print("[DEBUG] MainWindow: Đã khởi tạo MessagingTab thành công.")   
         except Exception as e:
             print(f"[ERROR] MainWindow: Lỗi khi khởi tạo MessagingTab: {e}")
 

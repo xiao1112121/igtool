@@ -2,10 +2,10 @@
     {
         "username": "abuzy44d",
         "password": "XNXX94",
-        "proxy": "173.211.8.111:6223:wwipvaeh:tfjxibkjxots",
+        "proxy": "",
         "selected": false,
         "fullname": "",
-        "status": "Live",
+        "status": "Đã đăng nhập",
         "gender": "-",
         "followers": "",
         "following": "",
@@ -15,8 +15,8 @@
     {
         "username": "ybahafrehrestan",
         "password": "ylnzgyhgrixe",
-        "proxy": "sssss",
-        "selected": true,
+        "proxy": "",
+        "selected": false,
         "fullname": "",
         "status": "Đã đăng nhập",
         "gender": "-",
@@ -28,21 +28,21 @@
     {
         "username": "allraalbuqeru",
         "password": "rcgciwgqzcxd",
-        "proxy": "sssss",
-        "selected": false,
+        "proxy": "",
+        "selected": true,
         "fullname": "",
-        "status": "Chưa đăng nhập",
+        "status": "Lỗi Captcha",
         "gender": "-",
         "followers": "",
         "following": "",
         "last_action": "",
-        "proxy_status": "Chưa kiểm tra"
+        "proxy_status": "Lỗi không xác định"
     },
     {
         "username": "ryanjacksongordon20115",
         "password": "iugsufsxsdgk",
-        "proxy": "sssss",
-        "selected": false,
+        "proxy": "",
+        "selected": true,
         "fullname": "",
         "status": "Chưa đăng nhập",
         "gender": "-",
@@ -54,7 +54,7 @@
     {
         "username": "carla94pucci",
         "password": "need3543",
-        "proxy": "sssss",
+        "proxy": "",
         "selected": false,
         "fullname": "",
         "status": "Chưa đăng nhập",
@@ -67,7 +67,7 @@
     {
         "username": "samipicaso",
         "password": "need3543",
-        "proxy": "sssss",
+        "proxy": "",
         "selected": false,
         "fullname": "",
         "status": "Chưa đăng nhập",
@@ -80,7 +80,7 @@
     {
         "username": "floryfruts",
         "password": "need3543",
-        "proxy": "sssss",
+        "proxy": "",
         "selected": false,
         "fullname": "",
         "status": "Chưa đăng nhập",
@@ -93,7 +93,7 @@
     {
         "username": "hieudan270",
         "password": "need3543",
-        "proxy": "sssss",
+        "proxy": "",
         "selected": false,
         "fullname": "",
         "status": "Chưa đăng nhập",

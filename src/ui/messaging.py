@@ -12,8 +12,9 @@ import json
 import os
 
 class MessagingTab(QWidget):
-    def __init__(self):
+    def __init__(self, account_tab=None):
         super().__init__()
+        self.account_tab = account_tab  # Lưu instance AccountManagementTab để lấy driver/session
         # Biến lưu trạng thái
         self.usernames = []  # Danh sách username hợp lệ đã tải lên
         self.username_file_loaded = False
@@ -22,6 +23,7 @@ class MessagingTab(QWidget):
         self.username_stats_label = QLabel("Số lượng username: 0")
         self.last_username_file_error = None
         self.accounts = []  # Lưu toàn bộ tài khoản
+        self.folder_map = {}  # Lưu folder_map để lọc tài khoản theo thư mục
         self.init_ui()
         self.load_message_templates()
         
@@ -86,7 +88,7 @@ class MessagingTab(QWidget):
         list_group = QGroupBox("Nhắn theo danh sách")
         list_layout = QVBoxLayout(list_group)
         list_layout.setContentsMargins(8, 18, 8, 8)
-
+        
         # Layout dọc cho radio + checkbox
         radio_col_layout = QVBoxLayout()
         radio_col_layout.setSpacing(8)
@@ -301,6 +303,16 @@ class MessagingTab(QWidget):
         self.btn_start.clicked.connect(self.send_message)
         self.btn_stop.clicked.connect(self.stop_sending)
 
+        # Đọc cấu hình từ file nếu có
+        self.settings_file = "messaging_settings.json"
+        self.load_settings()
+        # Kết nối sự kiện thay đổi để tự động lưu
+        self.thread_spin.valueChanged.connect(self.save_settings)
+        self.error_spin.valueChanged.connect(self.save_settings)
+        self.msg_count_spin.valueChanged.connect(self.save_settings)
+        self.delay_min_spin.valueChanged.connect(self.save_settings)
+        self.delay_max_spin.valueChanged.connect(self.save_settings)
+
     def open_or_create_data_file(self):
         import os
         import subprocess
@@ -430,6 +442,7 @@ class MessagingTab(QWidget):
         self.save_message_templates()
 
     def closeEvent(self, event):
+        self.save_settings()
         for driver in self.active_drivers:
             try:
                 driver.quit()
@@ -439,46 +452,31 @@ class MessagingTab(QWidget):
         super().closeEvent(event)
 
     def save_settings(self):
-        import json
         settings = {
-            "thread_spin_value": self.thread_spin.value(),
-            "error_spin_value": self.error_spin.value(),
-            "msg_count_spin_value": self.msg_count_spin.value(),
-            "delay_min_spin_value": self.delay_min_spin.value(),
-            "delay_max_spin_value": self.delay_max_spin.value(),
-            "username_radio_checked": self.username_radio.isChecked(),
-            "follower_radio_checked": self.follower_radio.isChecked(),
-            "following_radio_checked": self.following_radio.isChecked(),
-            "no_duplicate_checked": self.no_duplicate.isChecked(),
-            "username_file_path": self.username_file_path
+            "thread_spin": self.thread_spin.value(),
+            "error_spin": self.error_spin.value(),
+            "msg_count_spin": self.msg_count_spin.value(),
+            "delay_min_spin": self.delay_min_spin.value(),
+            "delay_max_spin": self.delay_max_spin.value()
         }
-        with open("messaging_settings.json", "w", encoding="utf-8") as f:
-            json.dump(settings, f, indent=4)
+        try:
+            with open(self.settings_file, "w", encoding="utf-8") as f:
+                json.dump(settings, f)
+        except Exception as e:
+            print(f"[WARN] Không thể lưu cấu hình tin nhắn: {e}")
 
     def load_settings(self):
-        import json, os
-        if os.path.exists("messaging_settings.json"):
-            with open("messaging_settings.json", "r", encoding="utf-8") as f:
-                settings = json.load(f)
-            self.thread_spin.setValue(settings.get("thread_spin_value", 1))
-            self.error_spin.setValue(settings.get("error_spin_value", 1))
-            self.msg_count_spin.setValue(settings.get("msg_count_spin_value", 1))
-            self.delay_min_spin.setValue(settings.get("delay_min_spin_value", 1))
-            self.delay_max_spin.setValue(settings.get("delay_max_spin_value", 1))
-            if settings.get("username_radio_checked", True):
-                self.username_radio.setChecked(True)
-            elif settings.get("follower_radio_checked", False):
-                self.follower_radio.setChecked(True)
-            elif settings.get("following_radio_checked", False):
-                self.following_radio.setChecked(True)
-            else:
-                self.username_radio.setChecked(True) # Default if none checked
-            self.no_duplicate.setChecked(settings.get("no_duplicate_checked", False))
-            saved_path = settings.get("username_file_path")
-            if saved_path and os.path.exists(saved_path):
-                self.username_file_path = saved_path
-                self.choose_username_file(saved_path) # Reload file to update usernames list and stats
-            update_input_mode() # Ensure correct visibility after loading settings
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, "r", encoding="utf-8") as f:
+                    settings = json.load(f)
+                    self.thread_spin.setValue(settings.get("thread_spin", 1))
+                    self.error_spin.setValue(settings.get("error_spin", 1))
+                    self.msg_count_spin.setValue(settings.get("msg_count_spin", 1))
+                    self.delay_min_spin.setValue(settings.get("delay_min_spin", 1))
+                    self.delay_max_spin.setValue(settings.get("delay_max_spin", 1))
+        except Exception as e:
+            print(f"[WARN] Không thể đọc cấu hình tin nhắn: {e}")
 
     def _validate_delay_spin(self):
         if self.delay_min_spin.value() < 5:
@@ -494,33 +492,50 @@ class MessagingTab(QWidget):
     def load_folder_list_to_combo(self):
         self.category_combo.clear()
         self.category_combo.addItem("Tất cả")
+        # Luôn load lại folder_map từ file để đảm bảo mới nhất
         import os, json
-        folder_map_file = os.path.join("data", "folder_map.json")
-        if os.path.exists(folder_map_file):
-            with open(folder_map_file, "r", encoding="utf-8") as f:
-                folder_map = json.load(f)
-            if folder_map and "_FOLDER_SET_" in folder_map:
-                for folder in folder_map["_FOLDER_SET_"]:
-                    if folder != "Tổng":
-                        self.category_combo.addItem(folder)
-        print(f"[DEBUG][MessagingTab] Đã tải danh sách thư mục vào combobox: {self.category_combo.count()} mục")
-
-    def on_folder_changed(self):
-        selected_folder = self.category_combo.currentText()
-        import os, json
-        folder_map_file = os.path.join("data", "folder_map.json")
+        folder_map_file = "data/folder_map.json"
         folder_map = {}
         if os.path.exists(folder_map_file):
             with open(folder_map_file, "r", encoding="utf-8") as f:
-                folder_map = json.load(f)
+                try:
+                    folder_map = json.load(f)
+                except Exception:
+                    folder_map = {}
+        self.folder_map = folder_map
+        if folder_map and "_FOLDER_SET_" in folder_map:
+            for folder in folder_map["_FOLDER_SET_"]:
+                if folder != "Tổng":
+                    self.category_combo.addItem(folder)
+        print(f"[DEBUG][MessagingTab] Đã tải danh sách thư mục vào combobox: {self.category_combo.count()} mục")
+
+    def on_folder_changed(self):
+        import json, os
+        # Load lại dữ liệu mới nhất
+        accounts = []
+        folder_map = {}
+        if os.path.exists("accounts.json"):
+            with open("accounts.json", "r", encoding="utf-8") as f:
+                try:
+                    accounts = json.load(f)
+                except Exception:
+                    accounts = []
+        if os.path.exists("data/folder_map.json"):
+            with open("data/folder_map.json", "r", encoding="utf-8") as f:
+                try:
+                    folder_map = json.load(f)
+                except Exception:
+                    folder_map = {}
+        self.accounts = accounts
+        self.folder_map = folder_map
+        selected_folder = self.category_combo.currentText()
         if selected_folder == "Tất cả":
-            filtered_accounts = self.accounts
+            self.update_account_table(self.accounts)
         else:
-            filtered_accounts = [
-                acc for acc in self.accounts
-                if folder_map.get(acc.get("username"), "Tổng") == selected_folder
-            ]
-        self.update_account_table(filtered_accounts)
+            # Lọc username thuộc đúng thư mục
+            filtered_accounts = [acc for acc in self.accounts if self.folder_map.get(acc.get("username"), "Tổng") == selected_folder]
+            self.update_account_table(filtered_accounts)
+        print(f"[DEBUG][MessagingTab] Đã lọc tài khoản theo thư mục: {selected_folder}")
 
     def on_folders_updated(self):
         self.load_folder_list_to_combo()
@@ -550,6 +565,10 @@ class MessagingTab(QWidget):
             self.account_table.setItem(i, 3, QTableWidgetItem(acc.get("status", "")))
             self.account_table.setItem(i, 4, QTableWidgetItem(str(acc.get("success", ""))))
             self.account_table.setItem(i, 5, QTableWidgetItem(acc.get("state", "")))
+            if "detail" in acc:
+                # Giả sử cột "Tình trạng" là cột cuối cùng
+                col = self.account_table.columnCount() - 1
+                self.account_table.setItem(i, col, QTableWidgetItem(str(acc["detail"])))
         self.account_table.clearSelection()
 
     def on_checkbox_clicked(self, row, new_state):
@@ -557,13 +576,15 @@ class MessagingTab(QWidget):
         if 0 <= row < len(self.accounts):
             self.accounts[row]["selected"] = new_state
 
-    def update_sender_status(self, username, state, success_count=None):
+    def update_sender_status(self, username, state, success_count=None, detail=None):
         # Cập nhật trạng thái và số lượng thành công cho tài khoản gửi
-        for acc in self.accounts:
+        for row, acc in enumerate(self.accounts):
             if acc.get("username") == username:
                 acc["state"] = state
                 if success_count is not None:
                     acc["success"] = success_count
+                if detail is not None:
+                    acc["detail"] = detail
                 break
         self.update_account_table()
         self.update_send_stats()
@@ -576,44 +597,172 @@ class MessagingTab(QWidget):
         if hasattr(self, 'stats_label'):
             self.stats_label.setText(f"Thành công: {success} | Thất bại: {fail} | Chưa gửi: {not_sent}")
 
+    def send_instagram_message(self, account, target, content, media):
+        """
+        Gửi tin nhắn Instagram thật bằng Selenium, sử dụng lại driver/session đã đăng nhập.
+        account: dict thông tin tài khoản gửi
+        target: username đích
+        content: nội dung tin nhắn
+        media: đường dẫn ảnh/video (nếu có)
+        Trả về: 'success', 'fail', 'checkpoint', 'blocked', ...
+        """
+        # Lấy driver đã đăng nhập từ AccountManagementTab
+        driver = None
+        username = account.get("username")
+        if self.account_tab and hasattr(self.account_tab, "active_drivers"):
+            # Giả định active_drivers là list các dict: {"username": ..., "driver": ...}
+            for drv in self.account_tab.active_drivers:
+                if isinstance(drv, dict) and drv.get("username") == username:
+                    driver = drv.get("driver")
+                    break
+                # Nếu chỉ lưu list driver, cần mapping username-driver rõ ràng
+                if not isinstance(drv, dict) and hasattr(drv, "insta_username") and drv.insta_username == username:
+                    driver = drv
+                    break
+        if driver is None:
+            print(f"[ERROR] Không tìm thấy driver cho tài khoản gửi: {username}")
+            return 'fail'
+        try:
+            # Bắt đầu automation gửi DM thật
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.common.keys import Keys
+            import time
+            # 1. Mở trang nhắn tin (Direct)
+            driver.get("https://www.instagram.com/direct/inbox/")
+            time.sleep(3)
+            # 2. Nhấn nút "Gửi tin nhắn mới" (New Message)
+            try:
+                new_msg_btn = driver.find_element(By.XPATH, "//div[contains(@aria-label, 'Tin nhắn mới') or contains(@aria-label, 'New message') or contains(text(), 'Gửi tin nhắn mới') or contains(text(), 'Send Message')]")
+                new_msg_btn.click()
+                time.sleep(2)
+            except Exception as e:
+                print(f"[WARN] Không tìm thấy nút Gửi tin nhắn mới: {e}")
+            # 3. Nhập username đích
+            to_input = driver.find_element(By.XPATH, "//input[@name='queryBox']")
+            to_input.clear()
+            to_input.send_keys(target)
+            time.sleep(2)
+            # 4. Chọn đúng user từ dropdown
+            user_items = driver.find_elements(By.XPATH, "//div[@role='button']//div[contains(@aria-label, 'Tài khoản') or contains(@aria-label, 'Account') or @role='button']")
+            if user_items:
+                user_items[0].click()
+                time.sleep(1)
+            else:
+                # Nếu không tìm thấy, thử nhấn Enter
+                to_input.send_keys(Keys.ENTER)
+                time.sleep(1)
+            # 5. Nhấn Next
+            next_btn = driver.find_element(By.XPATH, "//div[text()='Tiếp' or text()='Next']")
+            next_btn.click()
+            time.sleep(2)
+            # 6. Nhập nội dung tin nhắn
+            msg_box = driver.find_element(By.TAG_NAME, "textarea")
+            msg_box.clear()
+            msg_box.send_keys(content)
+            time.sleep(1)
+            # 7. Đính kèm media nếu có
+            if media and os.path.exists(media):
+                # Tìm nút đính kèm file (input type=file)
+                try:
+                    file_input = driver.find_element(By.XPATH, "//input[@type='file']")
+                    file_input.send_keys(os.path.abspath(media))
+                    time.sleep(2)
+                except Exception as e:
+                    print(f"[WARN] Không đính kèm được media: {e}")
+            # 8. Nhấn gửi
+            send_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Gửi') or contains(text(), 'Send')]" )
+            send_btn.click()
+            time.sleep(2)
+            # Kiểm tra gửi thành công (có thể kiểm tra sự xuất hiện của tin nhắn trong khung chat)
+            return 'success'
+        except Exception as e:
+            print(f"[ERROR] Lỗi gửi tin nhắn Instagram: {e}")
+            return 'fail'
+
     def send_message(self):
-        # Lọc danh sách người nhận theo chế độ radio
-        if self.username_radio.isChecked():
-            selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
-            if self.no_duplicate.isChecked():
-                seen = set()
-                filtered = []
-                for acc in selected_accounts:
-                    username = acc.get("username", "")
-                    if username not in seen:
-                        filtered.append(acc)
-                        seen.add(username)
-                selected_accounts = filtered
-            if not selected_accounts:
-                QMessageBox.warning(self, "Gửi tin nhắn", "Vui lòng tick chọn ít nhất một tài khoản để gửi tin nhắn.")
-                return
-            # Lấy các bài viết đã tick chọn
-            selected_templates = []
-            for row in range(self.message_table.rowCount()):
-                item_checkbox = self.message_table.item(row, 0)
-                if item_checkbox and item_checkbox.checkState() == Qt.Checked:
-                    content = self.message_table.item(row, 1).text() if self.message_table.item(row, 1) else ""
-                    media = self.message_table.item(row, 2).text() if self.message_table.item(row, 2) else ""
-                    selected_templates.append({"content": content, "media": media})
-            if not selected_templates:
-                QMessageBox.warning(self, "Gửi tin nhắn", "Vui lòng tick chọn ít nhất một bài viết để gửi.")
-                return
-            usernames = ', '.join(acc.get("username", "") for acc in selected_accounts)
-            msg_preview = '\n'.join(f"- {tpl['content']} | {tpl['media']}" for tpl in selected_templates)
-            QMessageBox.information(self, "Gửi tin nhắn", f"Đã gửi tin nhắn demo tới: {usernames}\nNội dung:\n{msg_preview}")
-            # Sau mỗi lần gửi thành công/thất bại cho tài khoản gửi:
-            self.update_sender_status(usernames, "Thành công", len(selected_templates))
-        elif self.follower_radio.isChecked():
-            # TODO: Lấy danh sách followers của tài khoản gửi tin nhắn
-            QMessageBox.information(self, "Gửi tin nhắn", "Chức năng gửi cho người theo dõi đang được phát triển.")
-        elif self.following_radio.isChecked():
-            # TODO: Lấy danh sách following của tài khoản gửi tin nhắn
-            QMessageBox.information(self, "Gửi tin nhắn", "Chức năng gửi cho người đang theo dõi đang được phát triển.")
+        sender_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not sender_accounts:
+            QMessageBox.warning(self, "Thiếu tài khoản gửi", "Vui lòng tick chọn ít nhất một tài khoản gửi!")
+            return
+        if not self.usernames:
+            QMessageBox.warning(self, "Thiếu username đích", "Vui lòng nhập danh sách username đích!")
+            return
+        selected_messages = []
+        for row in range(self.message_table.rowCount()):
+            item = self.message_table.item(row, 0)
+            if item and item.checkState() == Qt.Checked:
+                content = self.message_table.item(row, 1).text()
+                media = self.message_table.item(row, 2).text()
+                selected_messages.append((content, media))
+        if not selected_messages:
+            QMessageBox.warning(self, "Thiếu nội dung", "Vui lòng tick chọn ít nhất một nội dung tin nhắn!")
+            return
+        max_success = self.msg_count_spin.value()
+        max_error = self.error_spin.value()
+        delay_min = self.delay_min_spin.value()
+        delay_max = self.delay_max_spin.value()
+        for acc in sender_accounts:
+            acc["success"] = 0
+            acc["state"] = "Đang gửi"
+        self.update_account_table()
+        self.update_send_stats()
+        import random, time
+        for acc in sender_accounts:
+            username = acc.get("username")
+            error_count = 0
+            acc["state"] = "Đang gửi"
+            self.update_sender_status(username, "Đang gửi", 0, detail="")
+            driver = None
+            if self.account_tab and hasattr(self.account_tab, "active_drivers"):
+                for drv in self.account_tab.active_drivers:
+                    if isinstance(drv, dict) and drv.get("username") == username:
+                        driver = drv.get("driver")
+                        break
+            if driver is None:
+                self.update_sender_status(username, "Đang đăng nhập...", 0, detail="Đang đăng nhập...")
+                if hasattr(self.account_tab, "login_instagram_and_get_info"):
+                    login_result = self.account_tab.login_instagram_and_get_info(acc)
+                    if isinstance(login_result, tuple) and login_result[0] == "Đã đăng nhập":
+                        self.update_sender_status(username, "Đăng nhập thành công", 0, detail="Đăng nhập thành công")
+                        for drv in self.account_tab.active_drivers:
+                            if isinstance(drv, dict) and drv.get("username") == username:
+                                driver = drv.get("driver")
+                                break
+                    else:
+                        self.update_sender_status(username, "Đăng nhập thất bại", 0, detail=f"Đăng nhập thất bại: {login_result[0] if isinstance(login_result, tuple) else login_result}")
+                        acc["state"] = "Lỗi đăng nhập"
+                        continue
+                else:
+                    self.update_sender_status(username, "Lỗi đăng nhập", 0, detail="Không tìm thấy logic đăng nhập")
+                    acc["state"] = "Lỗi đăng nhập"
+                    continue
+            total_targets = len(self.usernames)
+            for idx, target in enumerate(self.usernames):
+                content, media = random.choice(selected_messages)
+                self.update_sender_status(username, f"Đang gửi", acc["success"], detail=f"Đang gửi tới {target}...")
+                result = self.send_instagram_message(acc, target, content, media)
+                if result == "success":
+                    acc["success"] = acc.get("success", 0) + 1
+                    self.update_sender_status(username, f"Đã gửi", acc["success"], detail=f"Đã gửi tới {target} | Thành công {acc['success']}/{total_targets}")
+                else:
+                    error_count += 1
+                    self.update_sender_status(username, f"Lỗi gửi", acc["success"], detail=f"Lỗi gửi tới {target} ({error_count}) | Thành công {acc['success']}/{total_targets}")
+                if acc["success"] >= max_success:
+                    acc["state"] = "Thành công"
+                    self.update_sender_status(username, f"Thành công", acc["success"], detail=f"Thành công {acc['success']}/{total_targets}")
+                    break
+                if error_count >= max_error:
+                    acc["state"] = "Lỗi"
+                    self.update_sender_status(username, f"Lỗi", acc["success"], detail=f"Lỗi gửi liên tiếp | Thành công {acc['success']}/{total_targets}")
+                    break
+                delay = random.randint(delay_min, delay_max)
+                QApplication.processEvents()
+                time.sleep(delay)
+            if acc["success"] < max_success and error_count < max_error:
+                acc["state"] = "Kết thúc"
+                self.update_sender_status(username, "Kết thúc", acc["success"], detail=f"Kết thúc | Thành công {acc['success']}/{total_targets}")
+        self.update_send_stats()
+        QMessageBox.information(self, "Hoàn thành", "Đã gửi xong tin nhắn cho các tài khoản gửi!")
 
     def load_recipients(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Chọn file danh sách username", "", "Text Files (*.txt)")
