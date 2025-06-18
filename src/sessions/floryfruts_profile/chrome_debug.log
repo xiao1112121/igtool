@@ -1,0 +1,17 @@
+[12872:22424:0619/030946.894:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[12872:22424:0619/030946.946:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=en-US,en;q=0.9 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=en-US,en;q=0.9 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:62308;https=127.0.0.1:62308 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\src\sessions\floryfruts_profile" --restore-last-session --restart
+[26412:27172:0619/030947.263:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[12872:22424:0619/031015.031:INFO:CONSOLE:249] "
+%cStop! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[12872:22424:0619/031015.031:INFO:CONSOLE:249] "
+%cThis is a browser feature intended for developers. If someone told you to copy-paste something here to enable an Instagram feature or "hack" someone's account, it is a scam and will give them access to your Instagram account. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[12872:22424:0619/031015.031:INFO:CONSOLE:249] "
+%cSee https://www.facebook.com/selfxss for more information. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[12872:22424:0619/031015.031:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[12872:22424:0619/031023.798:INFO:CONSOLE:245] "Permissions policy violation: unload is not allowed in this document.", source: https://static.xx.fbcdn.net/rsrc.php/v4/ys/r/66u5BEDF2Va.js (245)
+[12872:22424:0619/031034.042:INFO:CONSOLE:56] "ErrorUtils caught an error:
+
+DTSG response is not valid: {"__ar":1,"error":1357004,"errorSummary":"Sorry, something went wrong","errorDescription":"Please try closing and re-opening your browser window.","isNotCritical":1,"rid":"AeahAOZQb63xT2WbK70rPz4","payload":null,"lid":"7517384346599892164"}'
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4iGlR4/yK/l/en_US-j/mGhTvRcr20x.js (56)

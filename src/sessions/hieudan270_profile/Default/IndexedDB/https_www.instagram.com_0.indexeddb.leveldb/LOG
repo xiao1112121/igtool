@@ -1,0 +1,6 @@
+2025/06/19-01:37:22.212 6724 Creating DB D:\moi\igtool-master\src\sessions\hieudan270_profile\Default\IndexedDB\https_www.instagram.com_0.indexeddb.leveldb since it was missing.
+2025/06/19-01:37:22.217 6724 Reusing MANIFEST D:\moi\igtool-master\src\sessions\hieudan270_profile\Default\IndexedDB\https_www.instagram.com_0.indexeddb.leveldb/MANIFEST-000001
+2025/06/19-01:37:29.668 6734 Level-0 table #5: started
+2025/06/19-01:37:29.670 6734 Level-0 table #5: 10333 bytes OK
+2025/06/19-01:37:29.672 6734 Delete type=0 #3
+2025/06/19-01:37:29.672 6724 Manual compaction at level-0 from '\x00\x07\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x08\x00\x00\x00' @ 0 : 0; will stop at (end)

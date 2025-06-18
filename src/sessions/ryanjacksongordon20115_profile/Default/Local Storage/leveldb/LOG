@@ -1,0 +1,6 @@
+2025/06/19-03:09:47.525 40e8 Reusing MANIFEST D:\moi\igtool-master\src\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/MANIFEST-000001
+2025/06/19-03:09:47.531 40e8 Recovering log #4
+2025/06/19-03:09:47.533 40e8 Reusing old log D:\moi\igtool-master\src\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/000004.log 
+2025/06/19-03:10:36.645 6358 Level-0 table #8: started
+2025/06/19-03:10:36.650 6358 Level-0 table #8: 26360 bytes OK
+2025/06/19-03:10:36.653 6358 Delete type=0 #4

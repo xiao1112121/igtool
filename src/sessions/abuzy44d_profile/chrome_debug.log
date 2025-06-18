@@ -1,0 +1,17 @@
+[14088:25488:0619/030946.861:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[14088:25488:0619/030946.945:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:62309;https=127.0.0.1:62309 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\src\sessions\abuzy44d_profile" --restore-last-session --restart
+[25324:4188:0619/030947.893:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[14088:25488:0619/031014.851:INFO:CONSOLE:249] "
+%cSTOP！ font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[14088:25488:0619/031014.851:INFO:CONSOLE:249] "
+%cこれは開発者向けのブラウザー機能です。Instagram機能を有効にするためまたは誰かのアカウントをハッキングするために、ここに何かをコピー・貼り付けするように言われた場合、それは第三者があなたのInstagramアカウントへのアクセスを得るための詐欺・不正行為です。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[14088:25488:0619/031014.851:INFO:CONSOLE:249] "
+%c詳細はhttps://www.facebook.com/selfxssをご覧ください。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[14088:25488:0619/031014.851:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[14088:25488:0619/031027.420:INFO:CONSOLE:245] "Permissions policy violation: unload is not allowed in this document.", source: https://static.xx.fbcdn.net/rsrc.php/v4/ys/r/66u5BEDF2Va.js (245)
+[14088:25488:0619/031031.529:INFO:CONSOLE:56] "ErrorUtils caught an error:
+
+DTSG response is not valid: {"__ar":1,"error":1357004,"errorSummary":"\u30a8\u30e9\u30fc\u304c\u767a\u751f\u3057\u307e\u3057\u305f","errorDescription":"\u30d6\u30e9\u30a6\u30b6\u30fc\u3092\u4e00\u5ea6\u9589\u3058\u3066\u304b\u3089\u3082\u3046\u4e00\u5ea6\u958b\u3044\u3066\u307f\u3066\u304f\u3060\u3055\u3044\u3002","isNotCritical":1,"rid":"Ank-nzQY8pqgPEUkRnl8-jM","payload":null,"lid":"7517384335209396675"}'
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4iGlR4/yo/l/ja_JP-j/mGhTvRcr20x.js (56)

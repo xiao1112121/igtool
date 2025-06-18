@@ -1,0 +1,21 @@
+[22696:26144:0619/015305.667:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[22696:26144:0619/015305.757:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:53314;https=127.0.0.1:53314 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\src\sessions\hieudan270_profile" --restore-last-session --restart
+[17792:23356:0619/015306.872:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[22696:26144:0619/015314.578:INFO:CONSOLE:249] "
+%cDừng lại! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22696:26144:0619/015314.578:INFO:CONSOLE:249] "
+%cĐây là một tính năng của trình duyệt dành cho các nhà phát triển. Nếu ai đó yêu cầu bạn sao chép rồi dán nội dung nào đó vào đây để bật một tính năng của Instagram hoặc "hack" tài khoản của người khác, đó là hành vi lừa đảo và sẽ khiến họ có thể truy cập vào tài khoản Instagram của bạn. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22696:26144:0619/015314.579:INFO:CONSOLE:249] "
+%cXem https://www.facebook.com/selfxss để biết thêm thông tin. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22696:26144:0619/015314.579:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22696:26144:0619/015318.783:INFO:CONSOLE:249] "
+%cDừng lại! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22696:26144:0619/015318.784:INFO:CONSOLE:249] "
+%cĐây là một tính năng của trình duyệt dành cho các nhà phát triển. Nếu ai đó yêu cầu bạn sao chép rồi dán nội dung nào đó vào đây để bật một tính năng của Instagram hoặc "hack" tài khoản của người khác, đó là hành vi lừa đảo và sẽ khiến họ có thể truy cập vào tài khoản Instagram của bạn. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22696:26144:0619/015318.784:INFO:CONSOLE:249] "
+%cXem https://www.facebook.com/selfxss để biết thêm thông tin. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22696:26144:0619/015318.784:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22696:26144:0619/015324.688:INFO:CONSOLE:81] "WebSocket is already in CLOSING or CLOSED state.", source: https://static.cdninstagram.com/rsrc.php/v4idBq4/yP/l/vi_VN-j/tI6aM7dVi2W.js (81)
+[26900:23920:0619/015324.800:ERROR:net\socket\ssl_client_socket_impl.cc:878] handshake failed; returned -1, SSL error code 1, net_error -100

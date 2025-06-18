@@ -1,0 +1,62 @@
+[19464:21468:0618/225041.902:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[19464:21468:0618/225041.929:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:64818;https=127.0.0.1:64818 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" --user-data-dir="D:\backup15062025\sessions\ryanjacksongordon20115_profile" --restore-last-session --restart
+[17808:6976:0618/225042.084:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[19464:21468:0618/225047.709:INFO:CONSOLE:0] "[DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o", source: https://www.instagram.com/accounts/login/ (0)
+[19464:21468:0618/225048.003:INFO:CONSOLE:249] "
+%cSTOP！ font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225048.003:INFO:CONSOLE:249] "
+%cこれは開発者向けのブラウザー機能です。Instagram機能を有効にするためまたは誰かのアカウントをハッキングするために、ここに何かをコピー・貼り付けするように言われた場合、それは第三者があなたのInstagramアカウントへのアクセスを得るための詐欺・不正行為です。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225048.003:INFO:CONSOLE:249] "
+%c詳細はhttps://www.facebook.com/selfxssをご覧ください。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225048.003:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225049.103:INFO:CONSOLE:76] "ErrorUtils caught an error:
+
+Unable to parse uri "/ajax/bulk-route-definitions/" response. Error: Unexpected token '<', "<!DOCTYPE "... is not valid JSON, response: <!DOCTYPE html><html class="_9dls _ar44" lang="ja" dir="ltr"><head><link data-default-icon="https://static.cdninstagram.com/rsrc.php/v4/yI/r/VsNE-OHk_8a.png" rel="icon" sizes="192x192" href="https://static.cdninstagram.com/rsrc.php/v4/yI/r/VsNE-OHk_8a.png" /><meta name="bingbot" content="noarchive" /><meta name="robots" content="noarchive, noimageindex" /><meta charset="utf-8" /><meta name="apple-mobile-web-app-status-bar-style" content="default" /><meta name="mobile-web-app-capable" content="yes" /><meta id="viewport" name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=2, viewport-fit=cover" /><meta name="theme-color" content="#ffffff" /><meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" /><link rel="apple-touch-icon" sizes="76x76" href="https://static.cdninstagram.com/rsrc.php/v4/yR/r/lam-fZmwmvn.png" /><link rel="apple-touch-icon" sizes="120x120" href="https://static.cdninstagram.com/rsrc.php/v4/ys/r/aM-g435MtEX.p
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (76)
+[19464:21468:0618/225052.463:INFO:CONSOLE:249] "
+%cSTOP！ font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225052.463:INFO:CONSOLE:249] "
+%cこれは開発者向けのブラウザー機能です。Instagram機能を有効にするためまたは誰かのアカウントをハッキングするために、ここに何かをコピー・貼り付けするように言われた場合、それは第三者があなたのInstagramアカウントへのアクセスを得るための詐欺・不正行為です。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225052.463:INFO:CONSOLE:249] "
+%c詳細はhttps://www.facebook.com/selfxssをご覧ください。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225052.463:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225052.513:INFO:CONSOLE:0] "[DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o", source: https://www.instagram.com/ (0)
+[19464:21468:0618/225053.831:INFO:CONSOLE:76] "ErrorUtils caught an error:
+
+Unable to parse uri "/ajax/bulk-route-definitions/" response. Error: Unexpected token '<', "<!DOCTYPE "... is not valid JSON, response: <!DOCTYPE html><html class="_9dls _ar44" lang="ja" dir="ltr"><head><link data-default-icon="https://static.cdninstagram.com/rsrc.php/v4/yI/r/VsNE-OHk_8a.png" rel="icon" sizes="192x192" href="https://static.cdninstagram.com/rsrc.php/v4/yI/r/VsNE-OHk_8a.png" /><meta name="bingbot" content="noarchive" /><meta name="robots" content="noarchive, noimageindex" /><meta charset="utf-8" /><meta name="apple-mobile-web-app-status-bar-style" content="default" /><meta name="mobile-web-app-capable" content="yes" /><meta id="viewport" name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=2, viewport-fit=cover" /><meta name="theme-color" content="#ffffff" /><meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" /><link rel="apple-touch-icon" sizes="76x76" href="https://static.cdninstagram.com/rsrc.php/v4/yR/r/lam-fZmwmvn.png" /><link rel="apple-touch-icon" sizes="120x120" href="https://static.cdninstagram.com/rsrc.php/v4/ys/r/aM-g435MtEX.p
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (76)
+[19464:21468:0618/225057.993:WARNING:components\download\internal\background_service\controller_impl.cc:1187] Background download complete, client: 6, completion type: 0, file size:5155
+[19464:21468:0618/225058.383:WARNING:components\download\internal\background_service\controller_impl.cc:1187] Background download complete, client: 6, completion type: 0, file size:265059
+[19464:21468:0618/225058.978:WARNING:components\download\internal\background_service\controller_impl.cc:1187] Background download complete, client: 6, completion type: 0, file size:45153
+[19464:21468:0618/225102.852:WARNING:components\download\internal\background_service\controller_impl.cc:1187] Background download complete, client: 6, completion type: 0, file size:2200227
+[19464:21468:0618/225103.430:WARNING:components\download\internal\background_service\controller_impl.cc:1187] Background download complete, client: 6, completion type: 0, file size:4680
+[19464:21468:0618/225104.217:WARNING:components\download\internal\background_service\controller_impl.cc:1187] Background download complete, client: 6, completion type: 0, file size:118577
+[19464:21468:0618/225104.688:WARNING:components\download\internal\background_service\controller_impl.cc:1187] Background download complete, client: 6, completion type: 0, file size:2747168
+[19464:21468:0618/225153.407:INFO:CONSOLE:249] "
+%cSTOP！ font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225153.407:INFO:CONSOLE:249] "
+%cこれは開発者向けのブラウザー機能です。Instagram機能を有効にするためまたは誰かのアカウントをハッキングするために、ここに何かをコピー・貼り付けするように言われた場合、それは第三者があなたのInstagramアカウントへのアクセスを得るための詐欺・不正行為です。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225153.407:INFO:CONSOLE:249] "
+%c詳細はhttps://www.facebook.com/selfxssをご覧ください。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225153.407:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[19464:21468:0618/225157.831:INFO:CONSOLE:245] "Permissions policy violation: unload is not allowed in this document.", source: https://static.xx.fbcdn.net/rsrc.php/v4/ys/r/66u5BEDF2Va.js (245)
+[17808:19788:0618/225201.951:WARNING:ui\gl\angle_platform_impl.cc:54] HLSLCompiler.cpp:250 (rx::HLSLCompiler::compileToBinary): 
+C:\fakepath(130,3-70): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
+
+[19464:21468:0618/225202.820:INFO:CONSOLE:142] "ErrorUtils caught an error:
+
+DTSG response is not valid: {"__ar":1,"error":1357004,"errorSummary":"\u30a8\u30e9\u30fc\u304c\u767a\u751f\u3057\u307e\u3057\u305f","errorDescription":"\u30d6\u30e9\u30a6\u30b6\u30fc\u3092\u4e00\u5ea6\u9589\u3058\u3066\u304b\u3089\u3082\u3046\u4e00\u5ea6\u958b\u3044\u3066\u307f\u3066\u304f\u3060\u3055\u3044\u3002","isNotCritical":1,"rid":"AI_AM-_9MvhEQ3SQc7IqGSk","payload":null,"lid":"7517317725149450035"}'
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4iI7D4/yO/l/ja_JP-j/lfyWmqiC16jmGhTvRcr20xPHBALOZJ6U0XAXEI-aBzlkPAIa5AaUkA9l_q2-idCj9rtI6aM7dVi2WJg7dUf4vTiot1tl2FasLqqBZQ3N5EXN4eWEyt5QK9BmZpo8ynlRNnQ15mJqDHf_Xe9D9UAt8osFeeNazqYyiG2fxkzYuE0-uNKOrfFKnF_0tixzsVhW01_DN9J5rP-McezwtnWUh44W4Ede-5fHen0szzfxYwjTCk-3hXThs1eDoYWA1.js (142)
+[17808:19820:0618/225704.018:WARNING:ui\gl\angle_platform_impl.cc:54] HLSLCompiler.cpp:250 (rx::HLSLCompiler::compileToBinary): 
+C:\fakepath(136,3-70): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
+
+[17808:19788:0618/225704.043:WARNING:ui\gl\angle_platform_impl.cc:54] HLSLCompiler.cpp:250 (rx::HLSLCompiler::compileToBinary): 
+C:\fakepath(136,3-70): warning X3557: loop only executes for 1 iteration(s), forcing loop to unroll
+
+[19464:21468:0618/225707.888:INFO:CONSOLE:0] "Access to image at 'https://instagram.fjlr3-1.fna.fbcdn.net/v/t51.2885-19/464760996_1254146839119862_3605321457742435801_n.png?stp=dst-jpg_e0_s150x150_tt6&cb=8577c754-c2464923&_nc_ht=instagram.fjlr3-1.fna.fbcdn.net&_nc_cat=1&_nc_oc=Q6cZ2QEHjHbNiIZm8yRsfZqcqGybC9ollUuIE5B_OCMXHd_7BkG6rgiuw_llSHPeJEyrVEuN00lP1e48yPFgr9CvB7bz&_nc_ohc=WRvLfBrM4kwQ7kNvwGzR39H&_nc_gid=pz-d0xMcvcM6xP44JGV9uQ&edm=AEaYFD0BAAAA&ccb=7-5&ig_cache_key=YW5vbnltb3VzX3Byb2ZpbGVfcGlj.3-ccb7-5-cb8577c754-c2464923&oh=00_AfMRjttJ6tufzqAN8ag0_q1T9NkUIZDxlicweWioOOwPYg&oe=6858C468&_nc_sid=de718f' from origin 'https://www.instagram.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.", source: https://www.instagram.com/notifications/?next=%2F (0)

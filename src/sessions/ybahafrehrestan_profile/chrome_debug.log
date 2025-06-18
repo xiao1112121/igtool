@@ -1,0 +1,28 @@
+[22728:24860:0619/030946.894:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[22728:24860:0619/030946.956:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:62306;https=127.0.0.1:62306 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\src\sessions\ybahafrehrestan_profile" --restore-last-session --restart
+[21664:22652:0619/030947.354:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[22728:24860:0619/031005.910:INFO:CONSOLE:249] "
+%cDừng lại! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22728:24860:0619/031005.910:INFO:CONSOLE:249] "
+%cĐây là một tính năng của trình duyệt dành cho các nhà phát triển. Nếu ai đó yêu cầu bạn sao chép rồi dán nội dung nào đó vào đây để bật một tính năng của Instagram hoặc "hack" tài khoản của người khác, đó là hành vi lừa đảo và sẽ khiến họ có thể truy cập vào tài khoản Instagram của bạn. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22728:24860:0619/031005.910:INFO:CONSOLE:249] "
+%cXem https://www.facebook.com/selfxss để biết thêm thông tin. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22728:24860:0619/031005.910:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22316:16332:0619/031014.434:WARNING:net\spdy\spdy_session.cc:3054] Received HEADERS for invalid stream 63
+[22316:16332:0619/031014.481:WARNING:net\spdy\spdy_session.cc:3054] Received HEADERS for invalid stream 65
+[22316:16332:0619/031014.601:WARNING:net\spdy\spdy_session.cc:3054] Received HEADERS for invalid stream 65
+[22728:24860:0619/031024.883:INFO:CONSOLE:249] "
+%cDừng lại! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22728:24860:0619/031024.883:INFO:CONSOLE:249] "
+%cĐây là một tính năng của trình duyệt dành cho các nhà phát triển. Nếu ai đó yêu cầu bạn sao chép rồi dán nội dung nào đó vào đây để bật một tính năng của Instagram hoặc "hack" tài khoản của người khác, đó là hành vi lừa đảo và sẽ khiến họ có thể truy cập vào tài khoản Instagram của bạn. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22728:24860:0619/031024.883:INFO:CONSOLE:249] "
+%cXem https://www.facebook.com/selfxss để biết thêm thông tin. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22728:24860:0619/031024.883:INFO:CONSOLE:249] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
+[22728:24860:0619/031033.946:INFO:CONSOLE:245] "Permissions policy violation: unload is not allowed in this document.", source: https://static.xx.fbcdn.net/rsrc.php/v4/ys/r/66u5BEDF2Va.js (245)
+[22728:24860:0619/031041.052:INFO:CONSOLE:56] "ErrorUtils caught an error:
+
+DTSG response is not valid: {"__ar":1,"error":1357004,"errorSummary":"R\u1ea5t ti\u1ebfc, \u0111\u00e3 x\u1ea3y ra l\u1ed7i","errorDescription":"Vui l\u00f2ng th\u1eed \u0111\u00f3ng v\u00e0 m\u1edf l\u1ea1i c\u1eeda s\u1ed5 tr\u00ecnh duy\u1ec7t c\u1ee7a b\u1ea1n.","isNotCritical":1,"rid":"AOtoeA6FqI3SYl1CRWr6KK_","payload":null,"lid":"7517384377595709985"}'
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4iGlR4/yn/l/vi_VN-j/mGhTvRcr20x.js (56)
