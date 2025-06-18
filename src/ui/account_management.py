@@ -29,6 +29,7 @@ from twocaptcha import TwoCaptcha
 from src.ui.utils import random_delay, wait_for_element, wait_for_element_clickable, retry_operation
 from src.ui.context_menus import AccountContextMenu
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from selenium.webdriver.common.keys import Keys
 
 class CheckboxDelegate(QStyledItemDelegate):
     # Sử dụng một UserRole tùy chỉnh để tránh xung đột với Qt.CheckStateRole mặc định
@@ -639,11 +640,10 @@ class AccountManagementTab(QWidget):
         window_positions = self.get_window_positions(num_accounts_to_login)
         max_workers = min(5, num_accounts_to_login)
         print(f"[DEBUG] Đang đăng nhập {num_accounts_to_login} tài khoản với {max_workers} trình duyệt đồng thời.")
-        self.progress_dialog = QProgressDialog("Đang đăng nhập tài khoản...", "Hủy", 0, num_accounts_to_login, self)
-        self.progress_dialog.setWindowTitle("Tiến trình đăng nhập")
-        self.progress_dialog.setWindowModality(Qt.WindowModal)
-        self.progress_dialog.canceled.connect(self.close_all_drivers)
-        self.progress_dialog.show()
+        # BỎ HOÀN TOÀN QProgressDialog, chỉ cập nhật trạng thái trực tiếp vào bảng
+        # self.progress_dialog = QProgressDialog(...)
+        # self.progress_dialog.show()
+        # Thực hiện đăng nhập đa luồng như cũ, nhưng mỗi lần cập nhật trạng thái, cập nhật trực tiếp vào bảng
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_account = {
                 executor.submit(self.login_instagram_and_get_info, account, window_positions[i]): account
@@ -684,9 +684,7 @@ class AccountManagementTab(QWidget):
                     traceback.print_exc()
                 finally:
                     completed_count += 1
-                    self.progress_dialog.setValue(completed_count)
                     self.update_account_table()
-        self.progress_dialog.close()
         self.update_account_table()
 
     def login_instagram_and_get_info(self, account, window_position=None, max_retries=3, retry_delay=5):
@@ -699,16 +697,20 @@ class AccountManagementTab(QWidget):
             proxy_status = None
             driver = None
             try:
-                print(f"[DEBUG] Bắt đầu đăng nhập cho tài khoản {username}")
+                account["status"] = "Đang khởi tạo trình duyệt..."
+                self.update_account_table()
                 driver = self.init_driver(proxy, username=username)
                 if window_position:
                     x, y, width, height = window_position
                     driver.set_window_rect(x, y, width, height)
                     print(f"[DEBUG] Đã đặt vị trí cửa sổ cho {username} tại ({x}, {y}, {width}, {height})")
-                # --- Ưu tiên dùng profile cũ (user-data-dir) và cookies ---
+                account["status"] = "Đang mở Instagram..."
+                self.update_account_table()
                 driver.get("https://www.instagram.com/")
                 cookies_loaded = self.load_cookies(driver, username)
                 if cookies_loaded:
+                    account["status"] = "Đã load cookies, kiểm tra session..."
+                    self.update_account_table()
                     print(f"[DEBUG] Đã load cookies cho {username}, thử vào Instagram không cần nhập lại.")
                     driver.refresh()
                     time.sleep(2)
@@ -717,16 +719,16 @@ class AccountManagementTab(QWidget):
                         login_status = "Đã đăng nhập"
                         proxy_status = "OK"
                         self.save_cookies(driver, username)
+                        account["status"] = "Đã đăng nhập"
+                        self.update_account_table()
                         return login_status, proxy_status, driver
                     else:
                         print(f"[DEBUG] Session/profile không hợp lệ hoặc cần đăng nhập lại cho {username}.")
+                        account["status"] = "Session/profile không hợp lệ, thử đăng nhập lại..."
+                        self.update_account_table()
                 # Nếu chưa đăng nhập, mới nhập lại tài khoản/mật khẩu
-                # ... phần nhập username/password như cũ ...
-                # Sau khi đăng nhập thành công, lưu lại cookies
-                if driver.current_url.startswith("https://www.instagram.com/") and not "login" in driver.current_url:
-                    self.save_cookies(driver, username)
-                # ... phần nhập username/password như cũ ...
-                # Sau khi nhập username từng ký tự
+                account["status"] = "Đang nhập username..."
+                self.update_account_table()
                 for c in username:
                     username_input = wait_for_element(driver, By.NAME, "username", timeout=5)
                     if not username_input:
@@ -734,15 +736,37 @@ class AccountManagementTab(QWidget):
                     username_input.send_keys(c)
                     time.sleep(random.uniform(0.05, 0.13))
                 random_delay(0.1, 0.2)
-                # Sau khi nhập password từng ký tự
+                account["status"] = "Đang nhập mật khẩu..."
+                self.update_account_table()
                 for c in password:
                     password_input = wait_for_element(driver, By.NAME, "password", timeout=3)
                     if not password_input:
                         raise Exception("Không thể tìm thấy ô nhập password")
                     password_input.send_keys(c)
                     time.sleep(random.uniform(0.05, 0.13))
-                # Kiểm tra checkpoint/captcha sau khi nhập xong
+                account["status"] = "Đang gửi form đăng nhập..."
+                self.update_account_table()
+                password_input.send_keys(Keys.ENTER)
+                time.sleep(1)
+                login_button = wait_for_element(driver, By.CSS_SELECTOR, "button[type='submit']", timeout=3)
+                if not login_button:
+                    try:
+                        login_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Log In') or contains(text(), 'Se connecter') or contains(text(), 'Connexion') or contains(text(), 'Đăng nhập') or @type='submit']")
+                    except Exception:
+                        login_button = None
+                if login_button:
+                    try:
+                        driver.execute_script("arguments[0].click();", login_button)
+                        print(f"[DEBUG] Đã click nút đăng nhập cho {username} (đa ngôn ngữ)")
+                    except Exception as e:
+                        print(f"[ERROR] Không thể click nút đăng nhập: {e}")
+                else:
+                    print("[ERROR] Không tìm thấy nút đăng nhập!")
+                account["status"] = "Đang kiểm tra checkpoint/captcha..."
+                self.update_account_table()
                 if detect_checkpoint_or_captcha(driver):
+                    account["status"] = "Checkpoint/Captcha: Cần thao tác thủ công"
+                    self.update_account_table()
                     from PySide6.QtWidgets import QMessageBox
                     msg_box = QMessageBox()
                     msg_box.setWindowTitle("Captcha/Xác minh")
@@ -751,15 +775,17 @@ class AccountManagementTab(QWidget):
                     msg_box.button(QMessageBox.Ok).setText("Tiếp tục")
                     msg_box.exec()
                     print("[DEBUG] User đã nhấn Tiếp tục sau khi giải captcha/checkpoint.")
-
                 random_delay(0.3, 0.7)
                 login_button = wait_for_element(driver, By.CSS_SELECTOR, "button[type='submit']", timeout=5)
                 if not login_button:
                     raise Exception("Không thể tìm thấy nút đăng nhập")
                 driver.execute_script("arguments[0].click();", login_button)
                 print(f"[DEBUG] Đã click nút đăng nhập cho {username} bằng JavaScript")
-                # Kiểm tra checkpoint/captcha sau khi click login
+                account["status"] = "Đang kiểm tra checkpoint/captcha lần 2..."
+                self.update_account_table()
                 if detect_checkpoint_or_captcha(driver):
+                    account["status"] = "Checkpoint/Captcha: Cần thao tác thủ công"
+                    self.update_account_table()
                     from PySide6.QtWidgets import QMessageBox
                     msg_box = QMessageBox()
                     msg_box.setWindowTitle("Captcha/Xác minh")
@@ -768,7 +794,6 @@ class AccountManagementTab(QWidget):
                     msg_box.button(QMessageBox.Ok).setText("Tiếp tục")
                     msg_box.exec()
                     print("[DEBUG] User đã nhấn Tiếp tục sau khi giải captcha/checkpoint.")
-
                 # Xử lý pop-up "Lưu thông tin đăng nhập"
                 try:
                     not_now_button_xpath = (
@@ -788,7 +813,6 @@ class AccountManagementTab(QWidget):
                         random_delay(0.2, 0.5)
                 except Exception as e:
                     print(f"[DEBUG] Không tìm thấy hoặc không thể click nút 'Not Now' (lưu thông tin đăng nhập) cho {username}: {e}")
-
                 # Xử lý pop-up "Bật thông báo"
                 try:
                     turn_on_notifications_not_now_xpath = (
@@ -807,12 +831,11 @@ class AccountManagementTab(QWidget):
                         random_delay(0.2, 0.5)
                 except Exception as e:
                     print(f"[DEBUG] Không tìm thấy hoặc không thể click nút 'Not Now' (thông báo) cho {username}: {e}")
-
-                # Đợi một chút để xem có CAPTCHA không (giảm delay)
                 random_delay(0.5, 1.2)
-
                 # --- Tối ưu vòng lặp chờ avatar/profile ---
                 try:
+                    account["status"] = "Đang xác thực profile..."
+                    self.update_account_table()
                     def fast_find_avatar(driver, timeout=0.7):
                         start = time.time()
                         avatar_selectors = [
@@ -914,21 +937,23 @@ class AccountManagementTab(QWidget):
             finally:
                 # Chỉ quit driver nếu đăng nhập thất bại và KHÔNG phải trạng thái cần giữ cửa sổ cho captcha
                 if driver and login_status not in ["Đã đăng nhập", "Cần giải Captcha thủ công"]:
-                    try:
-                        driver.quit()
-                        print(f"[DEBUG] Đã đóng trình duyệt cho {username}")
-                    except Exception as e:
-                        print(f"[WARN] Lỗi khi đóng driver: {e}")
+                    import threading
+                    threading.Thread(target=lambda: driver.quit()).start()
+                    print(f"[DEBUG] Đã gửi lệnh đóng trình duyệt cho {username} (thread riêng)")
         # Thực hiện đăng nhập với logic thử lại
         login_status, proxy_status, driver = _perform_login()
         return login_status, proxy_status, driver
 
     def close_all_drivers(self):
-        for driver in self.active_drivers:
+        # Đóng từng driver trong thread riêng biệt để không block GUI
+        import threading
+        def close_driver_safe(driver):
             try:
                 driver.quit()
             except Exception as e:
                 print(f"[WARN] Lỗi khi đóng trình duyệt: {e}")
+        for d in self.active_drivers:
+            threading.Thread(target=close_driver_safe, args=(d["driver"] if isinstance(d, dict) and "driver" in d else d,)).start()
         self.active_drivers = []
         print("[INFO] Đã đóng tất cả các trình duyệt.")
 
