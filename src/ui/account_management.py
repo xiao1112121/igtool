@@ -1547,3 +1547,17 @@ def detect_checkpoint_or_captcha(driver):
     except Exception:
         pass
     return False
+
+def is_logged_in_desktop(driver):
+    try:
+        nav_divs = driver.find_elements(By.CLASS_NAME, "PolarisNavigationIcons")
+        for nav in nav_divs:
+            svgs = nav.find_elements(By.TAG_NAME, "svg")
+            print(f"[DEBUG] Số lượng SVG trong PolarisNavigationIcons: {len(svgs)}")
+            if len(svgs) >= 3:
+                print("[DEBUG] Đã nhận diện đủ 3 icon SVG đầu tiên trong PolarisNavigationIcons (Home, Explore, Reels)")
+                return True
+        print("[DEBUG] Không tìm thấy đủ 3 icon SVG trong PolarisNavigationIcons.")
+    except Exception as e:
+        print(f"[DEBUG] Lỗi khi kiểm tra icon SVG menu: {e}")
+    return False

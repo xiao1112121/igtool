@@ -1,17 +1,22 @@
-[12872:22424:0619/030946.894:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
-[12872:22424:0619/030946.946:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=en-US,en;q=0.9 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=en-US,en;q=0.9 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:62308;https=127.0.0.1:62308 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\src\sessions\floryfruts_profile" --restore-last-session --restart
-[26412:27172:0619/030947.263:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
-[12872:22424:0619/031015.031:INFO:CONSOLE:249] "
-%cStop! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[12872:22424:0619/031015.031:INFO:CONSOLE:249] "
-%cThis is a browser feature intended for developers. If someone told you to copy-paste something here to enable an Instagram feature or "hack" someone's account, it is a scam and will give them access to your Instagram account. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[12872:22424:0619/031015.031:INFO:CONSOLE:249] "
-%cSee https://www.facebook.com/selfxss for more information. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[12872:22424:0619/031015.031:INFO:CONSOLE:249] "
-%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[12872:22424:0619/031023.798:INFO:CONSOLE:245] "Permissions policy violation: unload is not allowed in this document.", source: https://static.xx.fbcdn.net/rsrc.php/v4/ys/r/66u5BEDF2Va.js (245)
-[12872:22424:0619/031034.042:INFO:CONSOLE:56] "ErrorUtils caught an error:
-
-DTSG response is not valid: {"__ar":1,"error":1357004,"errorSummary":"Sorry, something went wrong","errorDescription":"Please try closing and re-opening your browser window.","isNotCritical":1,"rid":"AeahAOZQb63xT2WbK70rPz4","payload":null,"lid":"7517384346599892164"}'
-
-Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4iGlR4/yK/l/en_US-j/mGhTvRcr20x.js (56)
+[21228:24748:0619/042605.337:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[21228:24748:0619/042605.502:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=en-US,en;q=0.9 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=en-US,en;q=0.9 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:51291;https=127.0.0.1:51291 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\src\sessions\floryfruts_profile" --restore-last-session --restart
+[26208:23380:0619/042606.638:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[26208:23380:0619/042607.827:ERROR:gpu\command_buffer\service\shared_image\shared_image_factory.cc:918] CreateSharedImage: could not create backing.
+[26208:23380:0619/042607.827:ERROR:gpu\command_buffer\service\shared_image\shared_image_manager.cc:401] SharedImageManager::ProduceSkia: Trying to Produce a Skia representation from a non-existent mailbox.
+[26208:23380:0619/042607.827:ERROR:components\viz\service\gl\exit_code.cc:13] Restarting GPU process due to unrecoverable error. Context was lost.
+[21228:24748:0619/042608.652:ERROR:content\browser\gpu\gpu_process_host.cc:955] GPU process exited unexpectedly: exit_code=34
+[21228:24748:0619/042608.652:WARNING:content\browser\gpu\gpu_process_host.cc:1396] The GPU process has crashed 1 time(s)
+[21228:24748:0619/042608.696:ERROR:content\browser\gpu\gpu_process_host.cc:955] GPU process exited unexpectedly: exit_code=7
+[21228:24748:0619/042608.696:WARNING:content\browser\gpu\gpu_process_host.cc:1396] The GPU process has crashed 2 time(s)
+[21228:24748:0619/042608.699:ERROR:content\browser\gpu\gpu_process_host.cc:949] GPU process launch failed: error_code=18
+[21228:24748:0619/042608.700:WARNING:content\browser\gpu\gpu_process_host.cc:1396] The GPU process has crashed 3 time(s)
+[21228:24748:0619/042608.703:ERROR:content\browser\network_service_instance_impl.cc:606] Network service crashed, restarting service.
+[21228:24748:0619/042608.929:ERROR:content\browser\gpu\gpu_process_host.cc:955] GPU process exited unexpectedly: exit_code=7
+[21228:24748:0619/042608.929:WARNING:content\browser\gpu\gpu_process_host.cc:1396] The GPU process has crashed 4 time(s)
+[21228:24748:0619/042609.002:ERROR:content\browser\gpu\gpu_process_host.cc:955] GPU process exited unexpectedly: exit_code=7
+[21228:24748:0619/042609.006:WARNING:content\browser\gpu\gpu_process_host.cc:1396] The GPU process has crashed 5 time(s)
+[21228:24748:0619/042609.063:ERROR:content\browser\network_service_instance_impl.cc:606] Network service crashed, restarting service.
+[24128:23304:0619/042609.101:ERROR:components\viz\service\main\viz_main_impl.cc:183] Exiting GPU process due to errors during initialization
+[21228:24748:0619/042609.491:WARNING:content\browser\gpu\gpu_process_host.cc:977] Reinitialized the GPU process after a crash. The reported initialization time was 0 ms
+[1164:19656:0619/042609.491:ERROR:gpu\ipc\service\gpu_channel_manager.cc:946] Failed to create GLES3 context, fallback to GLES2.
+[1164:19656:0619/042609.492:ERROR:gpu\ipc\service\gpu_channel_manager.cc:957] ContextResult::kFatalFailure: Failed to create shared context for virtualization.

@@ -1,3 +1,7 @@
-2025/06/19-03:09:47.621 69f8 Reusing MANIFEST D:\moi\igtool-master\src\sessions\abuzy44d_profile\Default\Local Storage\leveldb/MANIFEST-000001
-2025/06/19-03:09:47.627 69f8 Recovering log #9
-2025/06/19-03:09:47.629 69f8 Reusing old log D:\moi\igtool-master\src\sessions\abuzy44d_profile\Default\Local Storage\leveldb/000009.log 
+2025/06/19-04:26:06.008 67d0 Reusing MANIFEST D:\moi\igtool-master\src\sessions\abuzy44d_profile\Default\Local Storage\leveldb/MANIFEST-000001
+2025/06/19-04:26:06.014 67d0 Recovering log #12
+2025/06/19-04:26:06.015 67d0 Level-0 table #16: started
+2025/06/19-04:26:06.020 67d0 Level-0 table #16: 18554 bytes OK
+2025/06/19-04:26:06.020 67d0 Recovering log #16
+2025/06/19-04:26:06.022 67d0 Reusing old log D:\moi\igtool-master\src\sessions\abuzy44d_profile\Default\Local Storage\leveldb/000016.log 
+2025/06/19-04:26:06.024 67d0 Delete type=0 #12

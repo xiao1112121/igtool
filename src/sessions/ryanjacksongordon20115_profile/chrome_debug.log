@@ -1,27 +1,11 @@
-[19220:19692:0619/030947.036:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
-[19220:19692:0619/030947.102:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:62305;https=127.0.0.1:62305 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\src\sessions\ryanjacksongordon20115_profile" --restore-last-session --restart
-[24900:23668:0619/030948.140:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
-[19220:19692:0619/031006.417:INFO:CONSOLE:249] "
-%cStop ! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[19220:19692:0619/031006.417:INFO:CONSOLE:249] "
-%cIl s’agit d’une fonctionnalité de navigateur conçue pour les développeurs. Si quelqu’un vous a invité(e) à copier-coller quelque chose ici pour activer une fonctionnalité Instagram ou soi-disant pirater le compte d’un tiers, sachez que c’est une arnaque permettant à cette personne d’accéder à votre compte Instagram. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[19220:19692:0619/031006.417:INFO:CONSOLE:249] "
-%cVoir https://www.facebook.com/selfxss pour plus d’informations. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[19220:19692:0619/031006.417:INFO:CONSOLE:249] "
-%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[19136:27284:0619/031007.495:WARNING:net\spdy\spdy_session.cc:3054] Received HEADERS for invalid stream 33
-[19136:27284:0619/031007.661:WARNING:net\spdy\spdy_session.cc:3054] Received HEADERS for invalid stream 25
-[19220:19692:0619/031010.742:INFO:CONSOLE:249] "
-%cStop ! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[19220:19692:0619/031010.743:INFO:CONSOLE:249] "
-%cIl s’agit d’une fonctionnalité de navigateur conçue pour les développeurs. Si quelqu’un vous a invité(e) à copier-coller quelque chose ici pour activer une fonctionnalité Instagram ou soi-disant pirater le compte d’un tiers, sachez que c’est une arnaque permettant à cette personne d’accéder à votre compte Instagram. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[19220:19692:0619/031010.743:INFO:CONSOLE:249] "
-%cVoir https://www.facebook.com/selfxss pour plus d’informations. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[19220:19692:0619/031010.743:INFO:CONSOLE:249] "
-%c ", source: https://static.cdninstagram.com/rsrc.php/v4/ys/r/66u5BEDF2Va.js (249)
-[19220:19692:0619/031028.893:INFO:CONSOLE:56] "ErrorUtils caught an error:
-
-DTSG response is not valid: {"__ar":1,"error":1357004,"errorSummary":"D\u00e9sol\u00e9, une erreur s\u2019est produite.","errorDescription":"Essayez de fermer, puis d\u2019ouvrir \u00e0 nouveau la fen\u00eatre de votre navigateur.","isNotCritical":1,"rid":"ANL1vxwYHtsF-0X9KHCP4DV","payload":null,"lid":"7517384326152881467"}'
-
-Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4iGlR4/yG/l/fr_FR-j/mGhTvRcr20x.js (56)
-[19220:19692:0619/031031.660:INFO:CONSOLE:245] "Permissions policy violation: unload is not allowed in this document.", source: https://static.xx.fbcdn.net/rsrc.php/v4/ys/r/66u5BEDF2Va.js (245)
+[13168:17808:0619/042605.007:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[13168:17808:0619/042605.064:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7 --allow-pre-commit-input --app=https://www.instagram.com/accounts/login/ --disable-background-networking --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI --disable-hang-monitor --disable-infobars --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-save-password-bubble --disable-sync --disable-translate --enable-logging --ignore-certificate-errors --lang=vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:51288;https=127.0.0.1:51288 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\src\sessions\ryanjacksongordon20115_profile" --restore-last-session --restart
+[26460:15216:0619/042607.315:ERROR:ui\gl\gl_display.cc:508] EGL Driver message (Critical) eglInitialize: No available renderers.
+[26460:15216:0619/042607.317:ERROR:ui\gl\gl_display.cc:780] eglInitialize D3D11 failed with error EGL_NOT_INITIALIZED, trying next display type
+[26460:15216:0619/042608.470:ERROR:ui\gl\gl_display.cc:508] EGL Driver message (Critical) eglInitialize: No available renderers.
+[26460:15216:0619/042608.470:ERROR:ui\gl\gl_display.cc:780] eglInitialize D3D9 failed with error EGL_NOT_INITIALIZED
+[26460:15216:0619/042608.470:ERROR:ui\gl\gl_display.cc:815] Initialization of all EGL display types failed.
+[26460:15216:0619/042608.470:ERROR:ui\gl\init\gl_initializer_win.cc:145] GLDisplayEGL::Initialize failed.
+[26460:15216:0619/042608.586:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[13168:17808:0619/042608.615:ERROR:gpu\command_buffer\client\cmd_buffer_helper.cc:141] ContextResult::kFatalFailure: CommandBufferHelper::AllocateRingBuffer() failed
+[26460:14956:0619/042608.687:ERROR:components\viz\service\display_embedder\output_device_backing.cc:100] Shared memory region create failed on 3760592 bytes

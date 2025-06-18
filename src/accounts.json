@@ -18,12 +18,12 @@
         "proxy": "",
         "selected": true,
         "fullname": "",
-        "status": "Yêu cầu giải Captcha/Checkpoint",
+        "status": "Die",
         "gender": "-",
         "followers": "",
         "following": "",
         "last_action": "",
-        "proxy_status": "Lỗi xác minh"
+        "proxy_status": "Lỗi không xác định"
     },
     {
         "username": "allraalbuqeru",
@@ -44,12 +44,12 @@
         "proxy": "",
         "selected": true,
         "fullname": "",
-        "status": "Yêu cầu giải Captcha/Checkpoint",
+        "status": "Die",
         "gender": "-",
         "followers": "",
         "following": "",
         "last_action": "",
-        "proxy_status": "Lỗi xác minh"
+        "proxy_status": "Lỗi không xác định"
     },
     {
         "username": "floryfruts",

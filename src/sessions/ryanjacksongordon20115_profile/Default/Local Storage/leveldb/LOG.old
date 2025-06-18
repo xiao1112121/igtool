@@ -1,3 +1,6 @@
-2025/06/19-02:54:12.492 4840 Reusing MANIFEST D:\moi\igtool-master\src\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/MANIFEST-000001
-2025/06/19-02:54:12.497 4840 Recovering log #4
-2025/06/19-02:54:12.498 4840 Reusing old log D:\moi\igtool-master\src\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/000004.log 
+2025/06/19-03:31:11.391 6494 Reusing MANIFEST D:\moi\igtool-master\src\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/MANIFEST-000001
+2025/06/19-03:31:11.400 6494 Recovering log #7
+2025/06/19-03:31:11.407 6494 Reusing old log D:\moi\igtool-master\src\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/000007.log 
+2025/06/19-03:32:11.436 6494 Level-0 table #11: started
+2025/06/19-03:32:11.443 6494 Level-0 table #11: 21182 bytes OK
+2025/06/19-03:32:11.445 6494 Delete type=0 #7
