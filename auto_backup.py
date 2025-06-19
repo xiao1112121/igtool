@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Cấu hình GitHub
 GITHUB_REPO_URL = "https://github.com/xiao1112121/ig19062025.git"
-GITHUB_BRANCH = "main"
+GITHUB_BRANCH = "master"
 
 def run_command(command, check=True):
     """Chạy lệnh shell và trả về kết quả"""
