@@ -776,7 +776,7 @@ class AccountManagementTab(QWidget):
                     # Lưu cookies và báo về app
                     self.save_cookies(driver, username)
                     account["status"] = "Đã đăng nhập"
-                    QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                    self.status_updated.emit(username, account["status"])
                     # Đóng trình duyệt
                     driver.quit()
                     print(f"[INFO] Đã đóng trình duyệt cho {username}")
@@ -801,7 +801,7 @@ class AccountManagementTab(QWidget):
                         if self.check_captcha_required(driver):
                             print(f"[WARN] ⚠️ Phát hiện captcha khi load cookies cho {username}")
                             account["status"] = "Checkpoint/Captcha: Cần thao tác thủ công"
-                            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                            self.status_updated.emit(username, account["status"])
                             # Giữ cửa sổ mở để user xử lý
                             continue_result = self.show_captcha_dialog_safe(driver, username, "captcha")
                             if continue_result:
@@ -810,7 +810,7 @@ class AccountManagementTab(QWidget):
                                     print(f"[SUCCESS] ✅ Đăng nhập thành công sau xử lý captcha: {username}")
                                     self.save_cookies(driver, username)
                                     account["status"] = "Đã đăng nhập"
-                                    QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                                    self.status_updated.emit(username, account["status"])
                                     driver.quit()
                                     return "Đã đăng nhập", "OK", None
                             else:
@@ -822,7 +822,7 @@ class AccountManagementTab(QWidget):
             # BƯỚC 3: SESSION QUÁ HẠN - YÊU CẦU NHẬP TÀI KHOẢN MẬT KHẨU
             print(f"[3] Session quá hạn - Nhập tài khoản mật khẩu cho {username}")
             account["status"] = "Session quá hạn - Đang nhập tài khoản mật khẩu..."
-            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+            self.status_updated.emit(username, account["status"])
             
             # Tìm và nhập username
             try:
@@ -844,14 +844,14 @@ class AccountManagementTab(QWidget):
             except Exception as e:
                 print(f"[ERROR] Không thể nhập thông tin đăng nhập: {e}")
                 account["status"] = "Lỗi nhập thông tin đăng nhập"
-                QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                self.status_updated.emit(username, account["status"])
                 driver.quit()
                 return "Lỗi nhập thông tin", "Lỗi", None
             
             # BƯỚC 4: SAU KHI ĐĂNG NHẬP - CHECK THEO LOGIC YÊU CẦU
             print(f"[4] Kiểm tra kết quả đăng nhập cho {username}")
             account["status"] = "Đang kiểm tra kết quả đăng nhập..."
-            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+            self.status_updated.emit(username, account["status"])
             
             # Chờ tối đa 15 giây để kiểm tra
             max_wait_time = 15
@@ -904,7 +904,7 @@ class AccountManagementTab(QWidget):
                             # Báo về app đăng nhập thành công
                             print(f"[DEBUG] Đang cập nhật trạng thái về app cho {username}")
                             account["status"] = "Đã đăng nhập"
-                            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                            self.status_updated.emit(username, account["status"])
                             
                             # Đóng trình duyệt
                             print(f"[DEBUG] Đang đóng trình duyệt cho {username}")
@@ -921,7 +921,7 @@ class AccountManagementTab(QWidget):
                     if self.check_save_login_info(driver):
                         print(f"[INFO] 💾 Phát hiện form lưu thông tin đăng nhập cho {username}")
                         account["status"] = "Đang xử lý form lưu thông tin đăng nhập"
-                        QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                        self.status_updated.emit(username, account["status"])
                         
                         # Xử lý form - chọn "Not Now" để tiếp tục
                         if self.handle_save_login_info(driver, username):
@@ -932,7 +932,7 @@ class AccountManagementTab(QWidget):
                                 print(f"[SUCCESS] ✅ Đăng nhập thành công sau xử lý form lưu thông tin: {username}")
                                 self.save_cookies(driver, username)
                                 account["status"] = "Đã đăng nhập"
-                                QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                                self.status_updated.emit(username, account["status"])
                                 driver.quit()
                                 print(f"[INFO] Đã đóng trình duyệt cho {username}")
                                 print(f"[INFO] ===== HOÀN TẤT: {username} =====")
@@ -946,7 +946,7 @@ class AccountManagementTab(QWidget):
                         print(f"[WARN] ⚠️ Phát hiện yêu cầu giải captcha cho {username}")
                         print(f"[DEBUG] URL khi phát hiện captcha: {driver.current_url}")
                         account["status"] = "Phát hiện yêu cầu giải captcha"
-                        QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                        self.status_updated.emit(username, account["status"])
                         
                         # Giữ cửa sổ bật + hiển thị nút tiếp tục
                         continue_result = self.show_captcha_dialog_safe(driver, username, "captcha")
@@ -957,7 +957,7 @@ class AccountManagementTab(QWidget):
                                 print(f"[SUCCESS] ✅ Đăng nhập thành công sau giải captcha: {username}")
                                 self.save_cookies(driver, username)
                                 account["status"] = "Đã đăng nhập"
-                                QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                                self.status_updated.emit(username, account["status"])
                                 driver.quit()
                                 print(f"[INFO] Đã đóng trình duyệt cho {username}")
                                 print(f"[INFO] ===== HOÀN TẤT: {username} =====")
@@ -965,7 +965,7 @@ class AccountManagementTab(QWidget):
                         else:
                             print(f"[INFO] User chọn bỏ qua captcha")
                             account["status"] = "Đã bỏ qua captcha"
-                            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                            self.status_updated.emit(username, account["status"])
                             driver.quit()
                             return "Đã bỏ qua", "Bỏ qua", None
                     
@@ -973,7 +973,7 @@ class AccountManagementTab(QWidget):
                     if self.check_2fa_required(driver):
                         print(f"[WARN] ⚠️ Phát hiện yêu cầu nhập 2FA cho {username}")
                         account["status"] = "Phát hiện yêu cầu nhập 2FA"
-                        QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                        self.status_updated.emit(username, account["status"])
                         
                         # Giữ cửa sổ trình duyệt + hiển thị nút tiếp tục
                         continue_result = self.show_captcha_dialog_safe(driver, username, "2fa")
@@ -984,7 +984,7 @@ class AccountManagementTab(QWidget):
                                 print(f"[SUCCESS] ✅ Đăng nhập thành công sau nhập 2FA: {username}")
                                 self.save_cookies(driver, username)
                                 account["status"] = "Đã đăng nhập"
-                                QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                                self.status_updated.emit(username, account["status"])
                                 driver.quit()
                                 print(f"[INFO] Đã đóng trình duyệt cho {username}")
                                 print(f"[INFO] ===== HOÀN TẤT: {username} =====")
@@ -992,7 +992,7 @@ class AccountManagementTab(QWidget):
                         else:
                             print(f"[INFO] User chọn bỏ qua 2FA")
                             account["status"] = "Đã bỏ qua 2FA"
-                            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                            self.status_updated.emit(username, account["status"])
                             driver.quit()
                             return "Đã bỏ qua", "Bỏ qua", None
                     
@@ -1000,7 +1000,7 @@ class AccountManagementTab(QWidget):
                     if self.check_account_locked(driver):
                         print(f"[ERROR] ❌ Tài khoản {username} bị khóa")
                         account["status"] = "Tài khoản Die"
-                        QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                        self.status_updated.emit(username, account["status"])
                         # Đóng trình duyệt
                         driver.quit()
                         print(f"[INFO] Đã đóng trình duyệt cho {username}")
@@ -1017,7 +1017,7 @@ class AccountManagementTab(QWidget):
             # TIMEOUT - KHÔNG XÁC ĐỊNH ĐƯỢC TRẠNG THÁI
             print(f"[WARN] ⏰ Timeout khi đăng nhập {username}")
             account["status"] = "Timeout đăng nhập"
-            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+            self.status_updated.emit(username, account["status"])
             driver.quit()
             return "Timeout", "Timeout", None
             
@@ -1650,7 +1650,7 @@ class AccountManagementTab(QWidget):
             account["status"] = "Đã đăng nhập"
             account["last_action"] = f"Đăng nhập thành công lúc {time.strftime('%H:%M:%S')}"
             from PySide6.QtCore import QMetaObject, Qt
-            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+            self.status_updated.emit(username, account["status"])
             
             print(f"[SUCCESS] Xác minh đăng nhập thành công cho {username}")
             return True
