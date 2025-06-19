@@ -1,0 +1,8 @@
+2025/06/19-20:21:40.541 3cf0 Reusing MANIFEST D:\moi\igtool-master\sessions\ybahafrehrestan_profile\Default\Local Storage\leveldb/MANIFEST-000001
+2025/06/19-20:21:40.547 3cf0 Recovering log #16
+2025/06/19-20:21:40.547 3cf0 Level-0 table #18: started
+2025/06/19-20:21:40.550 3cf0 Level-0 table #18: 24569 bytes OK
+2025/06/19-20:21:40.550 3cf0 Recovering log #18
+2025/06/19-20:21:40.552 3cf0 Reusing old log D:\moi\igtool-master\sessions\ybahafrehrestan_profile\Default\Local Storage\leveldb/000018.log 
+2025/06/19-20:21:40.553 3cf0 Delete type=0 #16
+2025/06/19-20:21:40.553 3cf0 Delete type=2 #19

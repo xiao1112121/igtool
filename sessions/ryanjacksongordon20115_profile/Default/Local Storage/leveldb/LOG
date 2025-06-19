@@ -1,3 +1,17 @@
-2025/06/18-22:50:42.024 4bcc Reusing MANIFEST D:\backup15062025\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/MANIFEST-000001
-2025/06/18-22:50:42.074 4bcc Recovering log #3
-2025/06/18-22:50:42.076 4bcc Reusing old log D:\backup15062025\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/000003.log 
+2025/06/19-20:21:40.579 eb8 Reusing MANIFEST D:\moi\igtool-master\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/MANIFEST-000001
+2025/06/19-20:21:40.586 eb8 Recovering log #53
+2025/06/19-20:21:40.586 eb8 Level-0 table #55: started
+2025/06/19-20:21:40.593 eb8 Level-0 table #55: 21093 bytes OK
+2025/06/19-20:21:40.595 eb8 Recovering log #55
+2025/06/19-20:21:40.633 eb8 Reusing old log D:\moi\igtool-master\sessions\ryanjacksongordon20115_profile\Default\Local Storage\leveldb/000055.log 
+2025/06/19-20:21:40.649 eb8 Delete type=0 #53
+2025/06/19-20:21:40.649 eb8 Delete type=2 #56
+2025/06/19-20:21:40.651 eb8 Compacting 4@0 + 1@1 files
+2025/06/19-20:21:40.666 eb8 Generated table #56@0: 601 keys, 23883 bytes
+2025/06/19-20:21:40.666 eb8 Compacted 4@0 + 1@1 files => 23883 bytes
+2025/06/19-20:21:40.667 eb8 compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/06/19-20:21:40.668 eb8 Delete type=2 #44
+2025/06/19-20:21:40.668 eb8 Delete type=2 #46
+2025/06/19-20:21:40.668 eb8 Delete type=2 #49
+2025/06/19-20:21:40.668 eb8 Delete type=2 #52
+2025/06/19-20:21:40.668 eb8 Delete type=2 #55

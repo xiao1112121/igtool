@@ -1,0 +1,16 @@
+[11152:12952:0619/202139.952:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[11152:12952:0619/202139.997:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=en-US,en;q=0.9 --allow-pre-commit-input --app=https://www.instagram.com/ --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI,TranslateUI,VizDisplayCompositor --disable-hang-monitor --disable-infobars --disable-mobile-emulation --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-restore-session-state --disable-save-password-bubble --disable-session-crashed-bubble --disable-sync --disable-translate --enable-logging --force-device-scale-factor=1 --ignore-certificate-errors --lang=en-US,en;q=0.9 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:60368;https=127.0.0.1:60368 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\sessions\abuzy44d_profile" --window-size=450,380 --restore-last-session --restart
+[7820:15388:0619/202140.896:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[11152:12952:0619/202156.620:INFO:CONSOLE:250] "
+%cStop! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11152:12952:0619/202156.620:INFO:CONSOLE:250] "
+%cThis is a browser feature intended for developers. If someone told you to copy-paste something here to enable an Instagram feature or "hack" someone's account, it is a scam and will give them access to your Instagram account. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11152:12952:0619/202156.620:INFO:CONSOLE:250] "
+%cSee https://www.facebook.com/selfxss for more information. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11152:12952:0619/202156.620:INFO:CONSOLE:250] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11152:12952:0619/202157.960:INFO:CONSOLE:76] "ErrorUtils caught an error:
+
+Failed to fetch
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (76)

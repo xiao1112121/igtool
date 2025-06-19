@@ -3,40 +3,40 @@
         "username": "abuzy44d",
         "password": "XNXX94",
         "proxy": "",
-        "selected": false,
+        "selected": true,
         "fullname": "",
-        "status": "Đã đăng nhập",
+        "status": "Đã load cookies, kiểm tra session...",
         "gender": "-",
         "followers": "",
         "following": "",
         "last_action": "Đăng nhập",
-        "proxy_status": "OK"
+        "proxy_status": "Lỗi không xác định"
     },
     {
         "username": "ybahafrehrestan",
         "password": "ylnzgyhgrixe",
         "proxy": "",
-        "selected": false,
+        "selected": true,
         "fullname": "",
-        "status": "Đã đăng nhập",
+        "status": "Checkpoint/Captcha: Cần thao tác thủ công",
         "gender": "-",
         "followers": "",
         "following": "",
         "last_action": "Đăng nhập",
-        "proxy_status": "OK"
+        "proxy_status": "Lỗi không xác định"
     },
     {
         "username": "ryanjacksongordon20115",
         "password": "iugsufsxsdgk",
         "proxy": "",
-        "selected": false,
+        "selected": true,
         "fullname": "",
-        "status": "Chưa đăng nhập",
+        "status": "Đang mở Instagram...",
         "gender": "-",
         "followers": "",
         "following": "",
         "last_action": "",
-        "proxy_status": "Chưa kiểm tra"
+        "proxy_status": "Lỗi không xác định"
     },
     {
         "username": "floryfruts",
@@ -44,11 +44,11 @@
         "proxy": "",
         "selected": true,
         "fullname": "",
-        "status": "Chưa đăng nhập",
+        "status": "Đang mở Instagram...",
         "gender": "-",
         "followers": "",
         "following": "",
         "last_action": "",
-        "proxy_status": "Chưa kiểm tra"
+        "proxy_status": "Lỗi không xác định"
     }
 ]

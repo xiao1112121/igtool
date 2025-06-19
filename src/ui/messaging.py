@@ -162,7 +162,10 @@ class MessagingTab(QWidget):
         self.btn_choose_file.setStyleSheet("QPushButton { background-color: #1976D2; color: white; border-radius: 4px; } QPushButton::hover { background-color: #1565c0; }")
         self.btn_choose_file.setMinimumSize(70, 35)
         self.btn_choose_file.setMaximumSize(90, 35)
-        self.btn_choose_file.clicked.disconnect()
+        try:
+            self.btn_choose_file.clicked.disconnect()
+        except Exception:
+            pass
         self.btn_choose_file.clicked.connect(self.open_or_create_data_file)
         self.no_duplicate.stateChanged.connect(self.filter_duplicate_usernames)
         left_layout.addWidget(list_group)
@@ -807,8 +810,9 @@ class MessagingTab(QWidget):
             row = index.row()
             if row < len(self.accounts):
                 model_index = self.account_table.model().index(row, 0)
-                self.account_table.model().setData(model_index, True, CheckboxDelegate.CheckboxStateRole)
-                self.accounts[row]["selected"] = True
+                if model_index.isValid():
+                    self.account_table.model().setData(model_index, True, CheckboxDelegate.CheckboxStateRole)
+                    self.accounts[row]["selected"] = True
         self.update_account_table()
 
     def deselect_selected_accounts(self):
@@ -817,8 +821,9 @@ class MessagingTab(QWidget):
             row = index.row()
             if row < len(self.accounts):
                 model_index = self.account_table.model().index(row, 0)
-                self.account_table.model().setData(model_index, False, CheckboxDelegate.CheckboxStateRole)
-                self.accounts[row]["selected"] = False
+                if model_index.isValid():
+                    self.account_table.model().setData(model_index, False, CheckboxDelegate.CheckboxStateRole)
+                    self.accounts[row]["selected"] = False
         self.update_account_table()
 
     def show_message_context_menu(self, pos):
