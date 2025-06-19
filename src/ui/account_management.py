@@ -133,6 +133,7 @@ class CheckableHeaderView(QHeaderView):
         else:
             super().mousePressEvent(event)
 
+
 class AccountManagementTab(QWidget):
     # Định nghĩa tín hiệu để thông báo khi dữ liệu proxy được cập nhật
     proxy_updated = Signal()
@@ -467,9 +468,18 @@ class AccountManagementTab(QWidget):
         return []
 
     def save_accounts(self):
-        with open(self.accounts_file, 'w', encoding='utf-8') as f:
-            json.dump(self.accounts, f, indent=4, ensure_ascii=False)
-            print("[INFO] Tài khoản đã được lưu.")
+        # Sử dụng lock để tránh race condition khi nhiều thread cùng lưu
+        import threading
+        if not hasattr(self, '_save_lock'):
+            self._save_lock = threading.Lock()
+            
+        with self._save_lock:
+            try:
+                with open(self.accounts_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.accounts, f, indent=4, ensure_ascii=False)
+                    print("[INFO] Tài khoản đã được lưu.")
+            except Exception as e:
+                print(f"[ERROR] Lỗi khi lưu accounts: {e}")
 
     def add_account(self):
         username, ok = QInputDialog.getText(self, "Thêm tài khoản", "Tên người dùng:")
@@ -698,15 +708,56 @@ class AccountManagementTab(QWidget):
             QMessageBox.information(self, "Thông báo", "Vui lòng chọn ít nhất 1 tài khoản để đăng nhập.")
             return
         def login_worker(account, window_position=None):
+            import threading
+            username = account.get('username', 'Unknown')
+            thread_id = threading.get_ident()
+            
+            print(f"[DEBUG] Thread worker BẮT ĐẦU cho {username} - thread id: {thread_id}")
+            
+            # Signal báo thread bắt đầu
             try:
-                self.login_instagram_and_get_info(account, window_position)
+                account["status"] = "Thread bắt đầu..."
+                self.status_updated.emit(username, account["status"])
+                print(f"[DEBUG] Đã emit signal bắt đầu cho {username}")
             except Exception as e:
-                print(f"[ERROR][Thread] Lỗi khi đăng nhập tài khoản {account.get('username')}: {e}")
+                print(f"[ERROR] Không thể emit signal bắt đầu cho {username}: {e}")
+            
+            # Wrapping toàn bộ logic trong try-catch để đảm bảo luôn emit signal
+            try:
+                print(f"[DEBUG] Gọi login_instagram_and_get_info cho {username}")
+                result = self.login_instagram_and_get_info(account, window_position)
+                print(f"[DEBUG] login_instagram_and_get_info hoàn thành cho {username} với result: {result}")
+                return result
+                
+            except Exception as e:
+                print(f"[CRITICAL][Thread] Lỗi nghiêm trọng trong thread {username}: {type(e).__name__}: {e}")
+                import traceback
+                traceback.print_exc()
+                
+                # Đảm bảo luôn emit signal cập nhật trạng thái
+                try:
+                    error_status = f"Lỗi thread: {type(e).__name__}"
+                    account["status"] = error_status
+                    self.status_updated.emit(username, error_status)
+                    print(f"[DEBUG] Đã emit signal lỗi nghiêm trọng cho {username}")
+                except Exception as emit_error:
+                    print(f"[CRITICAL] Không thể emit signal cuối cùng cho {username}: {emit_error}")
+                
+                return "Lỗi thread", "Lỗi", None
+                
+            finally:
+                print(f"[DEBUG] Thread worker KẾT THÚC cho {username}")
+                
         window_positions = self.get_window_positions(len(selected_accounts))
+        
+        # Giữ nguyên logic ban đầu như user yêu cầu
         for idx, account in enumerate(selected_accounts):
             pos = window_positions[idx] if window_positions else None
             t = threading.Thread(target=login_worker, args=(account, pos), daemon=True)
             t.start()
+            # Delay giữa các thread như ban đầu
+            if idx < len(selected_accounts) - 1:
+                time.sleep(0.5)
 
     def login_instagram_and_get_info(self, account, window_position=None, max_retries=3, retry_delay=5):
         """Đăng nhập Instagram theo logic yêu cầu của user"""
@@ -716,10 +767,9 @@ class AccountManagementTab(QWidget):
         proxy = account.get("proxy") if getattr(self, 'use_proxy', True) else None
         
         print(f"[INFO] ===== BẮT ĐẦU ĐĂNG NHẬP: {username} =====")
+        print(f"[DEBUG] Account object username: {username}, account id: {id(account)}")
         
         try:
-            from PySide6.QtCore import QMetaObject, Qt
-            
             # BƯỚC 1: MỞ CHROME DRIVER TIẾN HÀNH ĐĂNG NHẬP
             print(f"[1] Mở Chrome driver cho {username}")
             account["status"] = "Đang mở Chrome driver..."
@@ -776,10 +826,26 @@ class AccountManagementTab(QWidget):
                     # Lưu cookies và báo về app
                     self.save_cookies(driver, username)
                     account["status"] = "Đã đăng nhập"
+                    
+                    # Emit signal và đảm bảo nó được xử lý trước khi đóng browser
                     self.status_updated.emit(username, account["status"])
-                    # Đóng trình duyệt
-                    driver.quit()
-                    print(f"[INFO] Đã đóng trình duyệt cho {username}")
+                    
+                    # Force process events để đảm bảo signal được xử lý ngay
+                    from PySide6.QtCore import QCoreApplication
+                    QCoreApplication.processEvents()
+                    
+                    # Delay thêm để đảm bảo UI cập nhật
+                    time.sleep(1.5)
+                    
+                    # Đóng trình duyệt một cách an toàn
+                    try:
+                        # Kiểm tra driver còn valid không
+                        if driver and hasattr(driver, 'quit'):
+                            driver.quit()
+                            print(f"[INFO] Đã đóng trình duyệt cho {username}")
+                    except Exception as e:
+                        print(f"[WARN] Lỗi khi đóng browser cho {username}: {e}")
+                    
                     print(f"[INFO] ===== HOÀN TẤT: {username} =====")
                     return "Đã đăng nhập", "OK", None
                 else:
@@ -1012,18 +1078,37 @@ class AccountManagementTab(QWidget):
                     
                 except Exception as e:
                     print(f"[ERROR] Lỗi khi kiểm tra trạng thái: {e}")
+                    
+                    # Kiểm tra nếu là lỗi session bị mất kết nối
+                    error_msg = str(e).lower()
+                    if "invalid session id" in error_msg or "session deleted" in error_msg or "not connected to devtools" in error_msg:
+                        print(f"[ERROR] Browser đã bị đóng hoặc mất kết nối cho {username}")
+                        account["status"] = "Lỗi: Browser bị đóng"
+                        self.status_updated.emit(username, account["status"])
+                        # Thoát khỏi vòng lặp vì không thể tiếp tục
+                        break
+                    
                     continue
             
             # TIMEOUT - KHÔNG XÁC ĐỊNH ĐƯỢC TRẠNG THÁI
             print(f"[WARN] ⏰ Timeout khi đăng nhập {username}")
             account["status"] = "Timeout đăng nhập"
             self.status_updated.emit(username, account["status"])
-            driver.quit()
+            
+            # Kiểm tra driver còn valid trước khi quit
+            if driver:
+                try:
+                    driver.quit()
+                except Exception as e:
+                    print(f"[WARN] Lỗi khi đóng browser cho {username}: {e}")
+            
             return "Timeout", "Timeout", None
             
         except Exception as e:
             print(f"[ERROR] ❌ Lỗi không mong muốn khi đăng nhập {username}: {e}")
             account["status"] = f"Lỗi: {str(e)}"
+            # Emit signal để cập nhật UI cho các trường hợp lỗi
+            self.status_updated.emit(username, account["status"])
             if driver:
                 try:
                     driver.quit()
@@ -1172,15 +1257,63 @@ class AccountManagementTab(QWidget):
     @Slot(str, str)
     def on_status_updated(self, username, status):
         """Update trạng thái từ thread một cách an toàn"""
+        print(f"[DEBUG] on_status_updated được gọi cho {username} với status: {status}")
+        
         # Tìm và cập nhật account trong danh sách
-        for account in self.accounts:
+        found = False
+        account_row = -1
+        for i, account in enumerate(self.accounts):
             if account.get("username") == username:
                 account["status"] = status
+                found = True
+                account_row = i
+                print(f"[DEBUG] Tìm thấy account {username} ở row {i}, đã cập nhật status")
                 break
-        # Lưu và cập nhật UI
+        
+        if not found:
+            print(f"[ERROR] Không tìm thấy account {username} trong danh sách accounts!")
+            return
+        
+        # Lưu accounts
         self.save_accounts()
-        self.update_account_table()
-        print(f"[DEBUG] Đã cập nhật trạng thái cho {username}: {status}")
+        
+        # Cập nhật chỉ ô trạng thái thay vì toàn bộ bảng để tránh dataChanged error
+        try:
+            if account_row >= 0 and account_row < self.account_table.rowCount():
+                # Block signals để tránh lỗi dataChanged
+                self.account_table.blockSignals(True)
+                
+                # Cập nhật chỉ ô trạng thái (cột 4)
+                status_item = self.account_table.item(account_row, 4)
+                if status_item:
+                    status_item.setText(status)
+                    # Cập nhật màu sắc
+                    if status == "Đăng nhập thất bại" or "Lỗi" in status:
+                        status_item.setForeground(QColor("red"))
+                    elif status == "Đã đăng nhập" or status == "Live":
+                        status_item.setForeground(QColor("green"))
+                    elif status == "Die":
+                        status_item.setForeground(QColor("red"))
+                    else:
+                        status_item.setForeground(QColor("black"))
+                
+                # Unblock signals
+                self.account_table.blockSignals(False)
+                
+                # Force repaint
+                self.account_table.viewport().update()
+                
+                print(f"[DEBUG] Đã cập nhật UI trực tiếp cho {username}: {status}")
+            else:
+                print(f"[ERROR] Row {account_row} không hợp lệ cho bảng có {self.account_table.rowCount()} rows")
+                
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi cập nhật UI cho {username}: {e}")
+            # Đảm bảo unblock signals
+            self.account_table.blockSignals(False)
+            
+        # Cập nhật thống kê
+        self.update_stats()
 
     def toggle_all_accounts_selection(self, checked):
         # Chỉ tick/bỏ tick các dòng đang hiển thị (không bị ẩn)

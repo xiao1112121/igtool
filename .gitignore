@@ -1,0 +1,108 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+application.log
+
+# Browser profiles và sessions (chứa thông tin nhạy cảm)
+sessions/
+!sessions/.gitkeep
+
+# Chrome cache và temp files
+chromedriver-win64/
+*.tmp
+*.temp
+
+# Cookies và session data (chứa thông tin đăng nhập)
+*_cookies.json
+*_session.json
+*.session
+
+# Browser cache files
+**/Cache/
+**/Code Cache/
+**/GPUCache/
+**/ShaderCache/
+**/GrShaderCache/
+**/GraphiteDawnCache/
+**/DawnGraphiteCache/
+**/DawnWebGPUCache/
+**/Local Storage/
+**/Session Storage/
+**/IndexedDB/
+**/Service Worker/
+**/BrowserMetrics/
+**/Crashpad/
+**/WebStorage/
+**/Network/
+**/Site Characteristics Database/
+**/Sync Data/
+**/shared_proto_db/
+**/Sessions/
+**/Platform Notifications/
+**/Extension State/
+
+# Chrome profile files
+*.pma
+*.journal
+**/Preferences
+**/History
+**/Favicons
+**/Web Data
+**/DIPS
+**/DIPS-wal
+**/SharedStorage-wal
+**/Breadcrumbs
+**/DevToolsActivePort
+**/Local State
+**/Variations
+**/chrome_debug.log
+**/first_party_sets.db
+**/QuotaManager
+**/QuotaManager-journal
+**/lockfile
+**/ukm_db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Selenium wire temp files
+.seleniumwire/
+
+# Test files
+test_*.py
+debug_*.py
+fix_*.py 
