@@ -6,6 +6,8 @@ from PySide6.QtCore import QThread, QTimer
 import os
 import traceback
 import logging
+from types import TracebackType
+from typing import Optional, Any
 
 # Thêm thư mục gốc của dự án vào sys.path để cho phép import các module trong src
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -28,7 +30,7 @@ logging.basicConfig(
 )
 
 # Global exception handler
-def handle_exception(exc_type: type, exc_value: BaseException, exc_traceback: object) -> None:
+def handle_exception(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: Optional[TracebackType]) -> None:
     if issubclass(exc_type, KeyboardInterrupt):
         sys.__excepthook__(exc_type, exc_value, exc_traceback)
         return
@@ -145,7 +147,7 @@ class MainWindow(QMainWindow):
                 # Set shorter timeouts for the account tab
                 if hasattr(self.account_tab, 'init_driver'):
                     original_init = self.account_tab.init_driver
-                    def init_driver_with_timeout(proxy=None, username=None):
+                    def init_driver_with_timeout(proxy: Optional[Any] = None, username: Optional[Any] = None):
                         driver = original_init(proxy, username)
                         if driver:
                             try:

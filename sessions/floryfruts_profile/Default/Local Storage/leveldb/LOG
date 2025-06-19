@@ -1,3 +1,15 @@
-2025/06/19-20:21:40.651 1324 Reusing MANIFEST D:\moi\igtool-master\sessions\floryfruts_profile\Default\Local Storage\leveldb/MANIFEST-000001
-2025/06/19-20:21:40.659 1324 Recovering log #37
-2025/06/19-20:21:40.661 1324 Reusing old log D:\moi\igtool-master\sessions\floryfruts_profile\Default\Local Storage\leveldb/000037.log 
+2025/06/19-20:43:24.552 3c30 Reusing MANIFEST D:\moi\igtool-master\sessions\floryfruts_profile\Default\Local Storage\leveldb/MANIFEST-000001
+2025/06/19-20:43:24.557 3c30 Recovering log #37
+2025/06/19-20:43:24.559 3c30 Reusing old log D:\moi\igtool-master\sessions\floryfruts_profile\Default\Local Storage\leveldb/000037.log 
+2025/06/19-20:43:54.350 1b44 Level-0 table #41: started
+2025/06/19-20:43:54.353 1b44 Level-0 table #41: 22744 bytes OK
+2025/06/19-20:43:54.355 1b44 Delete type=0 #37
+2025/06/19-20:43:54.356 1b44 Compacting 4@0 + 1@1 files
+2025/06/19-20:43:54.362 1b44 Generated table #42@0: 798 keys, 26869 bytes
+2025/06/19-20:43:54.362 1b44 Compacted 4@0 + 1@1 files => 26869 bytes
+2025/06/19-20:43:54.363 1b44 compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/06/19-20:43:54.364 1b44 Delete type=2 #29
+2025/06/19-20:43:54.364 1b44 Delete type=2 #32
+2025/06/19-20:43:54.365 1b44 Delete type=2 #35
+2025/06/19-20:43:54.365 1b44 Delete type=2 #38
+2025/06/19-20:43:54.365 1b44 Delete type=2 #41

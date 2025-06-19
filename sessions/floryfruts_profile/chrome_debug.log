@@ -1,24 +1,38 @@
-[7772:18164:0619/202140.087:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
-[7772:18164:0619/202140.235:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7 --allow-pre-commit-input --app=https://www.instagram.com/ --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI,TranslateUI,VizDisplayCompositor --disable-hang-monitor --disable-infobars --disable-mobile-emulation --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-restore-session-state --disable-save-password-bubble --disable-session-crashed-bubble --disable-sync --disable-translate --enable-logging --force-device-scale-factor=1 --ignore-certificate-errors --lang=de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:60369;https=127.0.0.1:60369 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\sessions\floryfruts_profile" --window-size=450,380 --restore-last-session --restart
-[10424:10892:0619/202141.104:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
-[7772:18164:0619/202154.221:INFO:CONSOLE:250] "
-%cStopp! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
-[7772:18164:0619/202154.221:INFO:CONSOLE:250] "
-%cDies ist eine Browser-Funktion, die für Entwickler bestimmt ist. Wenn dir jemand gesagt hat, dass du hier etwas per Copy-Paste einfügen sollst, um ein Instagram-Feature zu freizuschalten oder das Konto von jemandem zu „hacken“, ist das ein betrügerischer Trick, mit dem diese Person Zugriff auf dein Instagram-Konto erhält. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
-[7772:18164:0619/202154.222:INFO:CONSOLE:250] "
-%cWeitere Informationen findest Du unter https://www.facebook.com/selfxss. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
-[7772:18164:0619/202154.222:INFO:CONSOLE:250] "
+[11664:20692:0619/204324.223:INFO:components\enterprise\browser\controller\chrome_browser_cloud_management_controller.cc:202] No machine level policy manager exists.
+[11664:20692:0619/204324.271:WARNING:chrome\browser\chrome_browser_main_win.cc:743] Command line too long for RegisterApplicationRestart:  --accept-lang=ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7 --allow-pre-commit-input --app=https://www.instagram.com/ --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-blink-features=AutomationControlled --disable-client-side-phishing-detection --disable-default-apps --disable-extensions --disable-features=TranslateUI,TranslateUI,VizDisplayCompositor --disable-hang-monitor --disable-infobars --disable-mobile-emulation --disable-notifications --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-restore-session-state --disable-save-password-bubble --disable-session-crashed-bubble --disable-sync --disable-translate --enable-logging --force-device-scale-factor=1 --ignore-certificate-errors --lang=ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7 --log-level=0 --no-default-browser-check --no-first-run --no-service-autorun --password-store=basic --proxy-bypass-list=<-loopback> --proxy-server=http=127.0.0.1:61639;https=127.0.0.1:61639 --remote-debugging-port=0 --test-type=webdriver --use-mock-keychain --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" --user-data-dir="D:\moi\igtool-master\sessions\floryfruts_profile" --window-size=450,380 --restore-last-session --restart
+[1512:8388:0619/204324.571:WARNING:ui\gl\direct_composition_support.cc:1167] QueryInterface to IDCompositionDevice4 failed: 不支持此接口 (0x80004002)
+[11664:20692:0619/204337.342:INFO:CONSOLE:250] "
+%cSTOP！ font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204337.343:INFO:CONSOLE:250] "
+%cこれは開発者向けのブラウザー機能です。Instagram機能を有効にするためまたは誰かのアカウントをハッキングするために、ここに何かをコピー・貼り付けするように言われた場合、それは第三者があなたのInstagramアカウントへのアクセスを得るための詐欺・不正行為です。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204337.343:INFO:CONSOLE:250] "
+%c詳細はhttps://www.facebook.com/selfxssをご覧ください。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204337.343:INFO:CONSOLE:250] "
 %c ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
-[7772:18164:0619/202201.265:INFO:CONSOLE:250] "
-%cStopp! font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
-[7772:18164:0619/202201.265:INFO:CONSOLE:250] "
-%cDies ist eine Browser-Funktion, die für Entwickler bestimmt ist. Wenn dir jemand gesagt hat, dass du hier etwas per Copy-Paste einfügen sollst, um ein Instagram-Feature zu freizuschalten oder das Konto von jemandem zu „hacken“, ist das ein betrügerischer Trick, mit dem diese Person Zugriff auf dein Instagram-Konto erhält. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
-[7772:18164:0619/202201.265:INFO:CONSOLE:250] "
-%cWeitere Informationen findest Du unter https://www.facebook.com/selfxss. font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
-[7772:18164:0619/202201.265:INFO:CONSOLE:250] "
-%c ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
-[7772:18164:0619/202206.312:INFO:CONSOLE:76] "ErrorUtils caught an error:
+[11664:20692:0619/204340.288:INFO:CONSOLE:76] "ErrorUtils caught an error:
 
-(XHRRequest): {"errorCode":"HTTP_TRANSPORT_ERROR","errorMsg":"","errorRawTransport":"XMLHttpRequest","errorRawTransportStatus":0,"errorRawResponseHeaders":null,"errorType":"HTTP"} [Caught in: Unable to download and inject BT manifest "longtail" for version: 1024008389]
+Failed to fetch
 
 Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (76)
+[11664:20692:0619/204344.332:INFO:CONSOLE:250] "
+%cSTOP！ font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204344.332:INFO:CONSOLE:250] "
+%cこれは開発者向けのブラウザー機能です。Instagram機能を有効にするためまたは誰かのアカウントをハッキングするために、ここに何かをコピー・貼り付けするように言われた場合、それは第三者があなたのInstagramアカウントへのアクセスを得るための詐欺・不正行為です。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204344.332:INFO:CONSOLE:250] "
+%c詳細はhttps://www.facebook.com/selfxssをご覧ください。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204344.333:INFO:CONSOLE:250] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204357.104:INFO:CONSOLE:250] "
+%cSTOP！ font-family:helvetica; font-size:20px; font-size:50px; font-weight:bold; color:red; -webkit-text-stroke:1px black;", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204357.104:INFO:CONSOLE:250] "
+%cこれは開発者向けのブラウザー機能です。Instagram機能を有効にするためまたは誰かのアカウントをハッキングするために、ここに何かをコピー・貼り付けするように言われた場合、それは第三者があなたのInstagramアカウントへのアクセスを得るための詐欺・不正行為です。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204357.104:INFO:CONSOLE:250] "
+%c詳細はhttps://www.facebook.com/selfxssをご覧ください。 font-family:helvetica; font-size:20px; ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204357.104:INFO:CONSOLE:250] "
+%c ", source: https://static.cdninstagram.com/rsrc.php/v4/yu/r/R6-Uxg_mUAY.js (250)
+[11664:20692:0619/204404.622:INFO:CONSOLE:56] "ErrorUtils caught an error:
+
+DTSG response is not valid: {"__ar":1,"error":1357004,"errorSummary":"\u30a8\u30e9\u30fc\u304c\u767a\u751f\u3057\u307e\u3057\u305f","errorDescription":"\u30d6\u30e9\u30a6\u30b6\u30fc\u3092\u4e00\u5ea6\u9589\u3058\u3066\u304b\u3089\u3082\u3046\u4e00\u5ea6\u958b\u3044\u3066\u307f\u3066\u304f\u3060\u3055\u3044\u3002","isNotCritical":1,"rid":"A6V5gATB4k3i5Oy0SkWIvi6","payload":null,"lid":"7517655828714609255"}'
+
+Subsequent non-fatal errors won't be logged; see https://fburl.com/debugjs. [object Object]", source: https://static.cdninstagram.com/rsrc.php/v4iGlR4/yo/l/ja_JP-j/mGhTvRcr20x.js (56)
+[11664:20692:0619/204405.751:INFO:CONSOLE:200] "WebSocket is already in CLOSING or CLOSED state.", source: https://static.cdninstagram.com/rsrc.php/v4is0l4/yE/l/ja_JP-j/YgOaB4DkQXw8mS5j_-AnQyjW83DtyE1LPlvNsPbIuffwrtA0Gs83PTYWEyt5QK9BmZ5mJqDHf_Xe9D9UAt8osFeeuEtmahQfC-ikzYuE0-uNKOP92iqmI5Ft-nWUh44W4Ede-5fHen0szzfThs1eDoYWA1aCkAxl4CCdoAQGKL-0ZxrphvFP4EeY9jD35604unMSu-qDEtoJclSgKrQIoqmQtG0lYoWy-auypXThxMchKuOD36WVbHOUgP1SvPSEmqR_2N6tBEWyKqbVUuv.js (200)

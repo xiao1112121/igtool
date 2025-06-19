@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QProgressBar, QComboBox, QCheckBox, QSpinBox, QGroupBox,
     QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
     QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog, QSlider)
-from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent, QMetaObject
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent, QMetaObject, Slot
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QGuiApplication, QAction
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -136,6 +136,8 @@ class CheckableHeaderView(QHeaderView):
 class AccountManagementTab(QWidget):
     # Định nghĩa tín hiệu để thông báo khi dữ liệu proxy được cập nhật
     proxy_updated = Signal()
+    # Thêm signal để cập nhật trạng thái từ thread
+    status_updated = Signal(str, str)  # username, status
 
     USER_AGENTS = [
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -194,6 +196,8 @@ class AccountManagementTab(QWidget):
         self.sidebar_layout.addLayout(self.proxy_switch_layout)
         self.proxy_switch_slider.valueChanged.connect(self.on_proxy_switch_changed)
         self.update_proxy_switch_label()
+        # Kết nối signal status_updated để cập nhật từ thread
+        self.status_updated.connect(self.on_status_updated)
 
     def init_driver(self, proxy=None, username=None):
         print("[DEBUG] Bắt đầu khởi tạo driver...")
@@ -493,6 +497,7 @@ class AccountManagementTab(QWidget):
 
                     QMessageBox.information(self, "Thêm tài khoản", "Tài khoản đã được thêm thành công.")
 
+    @Slot()
     def update_account_table(self, accounts_to_display=None):
         if accounts_to_display is None:
             accounts_to_display = self.accounts
@@ -566,6 +571,7 @@ class AccountManagementTab(QWidget):
         self.account_table.blockSignals(False)  # Unblock signals
         self.update_stats(accounts_to_display)
 
+    @Slot()
     def update_stats(self, accounts_to_display=None):
         if accounts_to_display is None:
             accounts_to_display = self.accounts
@@ -717,7 +723,7 @@ class AccountManagementTab(QWidget):
             # BƯỚC 1: MỞ CHROME DRIVER TIẾN HÀNH ĐĂNG NHẬP
             print(f"[1] Mở Chrome driver cho {username}")
             account["status"] = "Đang mở Chrome driver..."
-            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+            self.status_updated.emit(username, "Đang mở Chrome driver...")
             
             driver = self.init_driver(proxy, username=username)
             
@@ -745,16 +751,27 @@ class AccountManagementTab(QWidget):
             # BƯỚC 2: LOAD SESSION COOKIES
             print(f"[2] Load session cookies cho {username}")
             account["status"] = "Đang load session cookies..."
-            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+            self.status_updated.emit(username, "Đang load session cookies...")
             
             cookies_loaded = self.load_cookies(driver, username)
+            print(f"[DEBUG] Kết quả load cookies cho {username}: {cookies_loaded}")
+            
             if cookies_loaded:
-                print(f"[DEBUG] Đã load cookies cho {username}")
+                print(f"[DEBUG] Đã load cookies cho {username} - Refresh trang...")
                 driver.refresh()
                 time.sleep(3)
+                print(f"[DEBUG] Sau refresh - URL: {driver.current_url}")
+                
+                # Debug DOM trước khi kiểm tra session
+                print(f"[DEBUG] ===== KIỂM TRA SESSION BẰNG COOKIES CHO {username} =====")
+                self.debug_instagram_dom(driver, username)
                 
                 # Kiểm tra session còn hạn không bằng cách check 2 icon
-                if self.check_home_and_explore_icons(driver):
+                print(f"[DEBUG] Gọi check_home_and_explore_icons để kiểm tra session cho {username}")
+                session_valid = self.check_home_and_explore_icons(driver)
+                print(f"[DEBUG] Kết quả kiểm tra session: {session_valid}")
+                
+                if session_valid:
                     print(f"[SUCCESS] ✅ Session còn hạn - Đăng nhập thành công bằng cookies: {username}")
                     # Lưu cookies và báo về app
                     self.save_cookies(driver, username)
@@ -768,12 +785,39 @@ class AccountManagementTab(QWidget):
                 else:
                     print(f"[WARN] Session quá hạn cho {username} - Cần đăng nhập lại")
                     print(f"[DEBUG] URL hiện tại: {driver.current_url}")
-                    print(f"[DEBUG] Title hiện tại: {driver.title}")
+                    try:
+                        title = driver.title
+                        print(f"[DEBUG] Title hiện tại: {title}")
+                    except Exception as e:
+                        print(f"[DEBUG] Lỗi khi lấy title: {e}")
+                    
                     # Kiểm tra xem có phải đang ở trang login không
                     if "login" in driver.current_url.lower() or "accounts/login" in driver.current_url.lower():
                         print(f"[DEBUG] Đang ở trang login - session thật sự hết hạn")
                     else:
                         print(f"[DEBUG] Không ở trang login - có thể vẫn đang load hoặc có lỗi khác")
+                        
+                        # Kiểm tra xem có phải bị captcha/checkpoint không
+                        if self.check_captcha_required(driver):
+                            print(f"[WARN] ⚠️ Phát hiện captcha khi load cookies cho {username}")
+                            account["status"] = "Checkpoint/Captcha: Cần thao tác thủ công"
+                            QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                            # Giữ cửa sổ mở để user xử lý
+                            continue_result = self.show_captcha_dialog_safe(driver, username, "captcha")
+                            if continue_result:
+                                # Sau khi user xử lý, check lại
+                                if self.check_home_and_explore_icons(driver):
+                                    print(f"[SUCCESS] ✅ Đăng nhập thành công sau xử lý captcha: {username}")
+                                    self.save_cookies(driver, username)
+                                    account["status"] = "Đã đăng nhập"
+                                    QMetaObject.invokeMethod(self, "update_account_table", Qt.QueuedConnection)
+                                    driver.quit()
+                                    return "Đã đăng nhập", "OK", None
+                            else:
+                                driver.quit()
+                                return "Đã bỏ qua", "Bỏ qua", None
+            else:
+                print(f"[DEBUG] Không có cookies hoặc không load được cookies cho {username}")
             
             # BƯỚC 3: SESSION QUÁ HẠN - YÊU CẦU NHẬP TÀI KHOẢN MẬT KHẨU
             print(f"[3] Session quá hạn - Nhập tài khoản mật khẩu cho {username}")
@@ -1124,6 +1168,19 @@ class AccountManagementTab(QWidget):
             f"Follower: {selected_account.get('followers', 'N/A')}\n"
             f"Following: {selected_account.get('following', 'N/A')}\n"
             f"Hành động cuối: {selected_account.get('last_action', 'N/A')}")
+
+    @Slot(str, str)
+    def on_status_updated(self, username, status):
+        """Update trạng thái từ thread một cách an toàn"""
+        # Tìm và cập nhật account trong danh sách
+        for account in self.accounts:
+            if account.get("username") == username:
+                account["status"] = status
+                break
+        # Lưu và cập nhật UI
+        self.save_accounts()
+        self.update_account_table()
+        print(f"[DEBUG] Đã cập nhật trạng thái cho {username}: {status}")
 
     def toggle_all_accounts_selection(self, checked):
         # Chỉ tick/bỏ tick các dòng đang hiển thị (không bị ẩn)

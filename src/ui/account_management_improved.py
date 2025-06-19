@@ -1,19 +1,12 @@
-import os
-import sys
 import time
 import random
-import json
-import threading
-import queue
-from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Any, Union
-import traceback  
+import logging
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QMetaObject
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
     QLabel, QLineEdit, QTextEdit, QFileDialog, QMessageBox,
     QProgressBar, QComboBox, QCheckBox, QSpinBox, QGroupBox,
     QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
     QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog, QSlider)
-from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent, QMetaObject
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QGuiApplication, QAction
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -21,7 +14,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 from seleniumwire import webdriver as wire_webdriver
 from seleniumwire.utils import decode
@@ -30,7 +23,6 @@ from src.ui.utils import random_delay, wait_for_element, wait_for_element_clicka
 from src.ui.context_menus import AccountContextMenu
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from selenium.webdriver.common.keys import Keys
-import logging
 
 class ImprovedLoginManager:
     """Improved login manager with better timeout handling and no-hang guarantees"""
