@@ -7,7 +7,9 @@ Hệ thống tự động backup code lên GitHub trước mỗi lần chỉnh s
 - `auto_backup.py` - Script chính để backup code lên GitHub
 - `run_with_backup.py` - Wrapper script tự động backup trước khi chạy ứng dụng
 - `run_with_backup.bat` - File batch cho Windows
+- `scheduled_backup.py` - Script backup định kỳ và theo dõi thay đổi file
 - `.gitignore` - Loại bỏ các file không cần thiết khỏi Git
+- `sessions/.gitkeep` - Giữ thư mục sessions trong Git
 
 ## 🚀 Cách sử dụng
 
@@ -29,10 +31,42 @@ python auto_backup.py
 python auto_backup.py "Cập nhật tính năng login"
 ```
 
-### Phương pháp 3: Chạy ứng dụng thông thường (không backup)
+### Phương pháp 3: Backup định kỳ tự động (Nâng cao)
+```bash
+# Cài đặt dependency (chỉ cần 1 lần)
+pip install watchdog
+
+# Chạy monitoring với backup mỗi 30 phút (mặc định)
+python scheduled_backup.py
+
+# Chạy monitoring với backup mỗi 15 phút
+python scheduled_backup.py 15
+
+# Backup tự động khi file .py được thay đổi + backup định kỳ
+```
+
+### Phương pháp 4: Chạy ứng dụng thông thường (không backup)
 ```bash
 python src/main.py
 ```
+
+## ✨ Tính năng
+
+### 🔄 Auto Backup
+- Tự động backup trước mỗi lần chạy ứng dụng
+- Commit message với timestamp tự động
+- Push lên GitHub repository
+
+### 📊 Scheduled Backup
+- Backup định kỳ theo thời gian cài đặt (mặc định 30 phút)
+- Theo dõi thay đổi file .py và backup tự động
+- Cooldown 5 phút giữa các backup để tránh spam
+- Chạy background, có thể dừng bằng Ctrl+C
+
+### 🛡️ Bảo mật
+- Tự động loại bỏ session files, cookies, cache
+- Bảo vệ thông tin đăng nhập khỏi bị commit
+- .gitignore toàn diện cho browser data
 
 ## ⚙️ Thiết lập lần đầu
 
