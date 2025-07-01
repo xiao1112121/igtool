@@ -978,37 +978,37 @@ class AccountManagementTab(QWidget):
                         async def get_user_info():
                             try:
                                 write_log(f"[DEBUG] 🔗 Attempting to connect to Telegram for session: {session_name}")
-                                await client.connect()
+                            await client.connect()
                                 write_log(f"[DEBUG] ✅ Connected successfully to Telegram for session: {session_name}")
-                                
+                            
                                 write_log(f"[DEBUG] 🔐 Checking authorization status for session: {session_name}")
-                                if not await client.is_user_authorized():
+                            if not await client.is_user_authorized():
                                     write_log(f"[ERROR] ❌ Session {session_name} is not authorized (expired or invalid)")
-                                    return None
-                                
+                                return None
+                            
                                 write_log(f"[DEBUG] ✅ Session {session_name} is authorized, getting user info...")
-                                # Lấy thông tin user hiện tại
-                                me = await client.get_me()
+                            # Lấy thông tin user hiện tại
+                            me = await client.get_me()
                                 
                                 if not me:
                                     write_log(f"[ERROR] ❌ Could not get user info for session: {session_name}")
                                     return None
                                 
                                 write_log(f"[DEBUG] 📋 Retrieved user info for session {session_name}: ID={me.id}, Phone={me.phone}, Username={me.username}")
-                                
-                                # Thông tin cơ bản
-                                user_info = {
-                                    'id': me.id,
-                                    'phone': me.phone or session_name,
-                                    'username': me.username or '',
-                                    'first_name': me.first_name or '',
-                                    'last_name': me.last_name or '',
-                                    'is_premium': getattr(me, 'premium', False),
-                                    'is_verified': getattr(me, 'verified', False)
-                                }
-                                
+                            
+                            # Thông tin cơ bản
+                            user_info = {
+                                'id': me.id,
+                                'phone': me.phone or session_name,
+                                'username': me.username or '',
+                                'first_name': me.first_name or '',
+                                'last_name': me.last_name or '',
+                                'is_premium': getattr(me, 'premium', False),
+                                'is_verified': getattr(me, 'verified', False)
+                            }
+                            
                                 write_log(f"[DEBUG] ✅ Successfully processed user info for session: {session_name}")
-                                return user_info
+                            return user_info
                                 
                             except Exception as inner_e:
                                 inner_error_type = type(inner_e).__name__
@@ -1443,89 +1443,161 @@ class AccountManagementTab(QWidget):
         return positions
 
     def login_selected_accounts(self):
-        # Chạy đăng nhập cho từng tài khoản trong thread phụ, không block main thread
-        import threading
+        """Đăng nhập Telegram cho các tài khoản được chọn"""
+        import time
+        from PySide6.QtWidgets import QProgressDialog, QInputDialog, QLineEdit
+        from PySide6.QtCore import Qt
+        
         selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
         if not selected_accounts:
-            QMessageBox.information(self, "Thông báo", "Vui lòng chọn ít nhất 1 tài khoản để đăng nhập.")
+            QMessageBox.information(self, "Thông báo", "Vui lòng chọn ít nhất 1 tài khoản để đăng nhập Telegram.")
             return
-        def login_worker(account, window_position=None):
-            import threading
-            username = account.get('username', 'Unknown')
-            thread_id = threading.get_ident()
+        
+        # Kiểm tra config Telegram
+        try:
+            import json
+            with open("telegram_config.json", "r") as f:
+                config = json.load(f)
+            api_id = config["api_id"]  
+            api_hash = config["api_hash"]
             
-            print(f"[DEBUG] Thread worker BẮT ĐẦU cho {username} - thread id: {thread_id}")
-            
-            # Signal báo thread bắt đầu
-            try:
-                account["status"] = "Thread bắt đầu..."
-                self.status_updated.emit(username, account["status"])
-                print(f"[DEBUG] Đã emit signal bắt đầu cho {username}")
-            except Exception as e:
-                print(f"[ERROR] Không thể emit signal bắt đầu cho {username}: {e}")
-            
-            # Wrapping toàn bộ logic trong try-catch để đảm bảo luôn emit signal
-            try:
-                print(f"[DEBUG] Gọi login_instagram_and_get_info cho {username}")
-                result = self.login_instagram_and_get_info(account, window_position)
-                print(f"[DEBUG] login_instagram_and_get_info hoàn thành cho {username} với result: {result}")
-                return result
+            if api_id == "YOUR_API_ID" or api_hash == "YOUR_API_HASH_FROM_MY_TELEGRAM_ORG":
+                QMessageBox.critical(self, "Lỗi", "Vui lòng cấu hình API ID và API Hash thật trong telegram_config.json")
+                return
                 
             except Exception as e:
-                print(f"[CRITICAL][Thread] Lỗi nghiêm trọng trong thread {username}: {type(e).__name__}: {e}")
-                import traceback
-                traceback.print_exc()
+            QMessageBox.critical(self, "Lỗi", f"Lỗi đọc config Telegram: {str(e)}")
+            return
+        
+        # Import Telethon
+        try:
+            from telethon import TelegramClient
+        except ImportError:
+            QMessageBox.critical(self, "Lỗi", "Cần cài đặt thư viện Telethon:\npip install telethon")
+            return
+        
+        # Progress dialog
+        progress = QProgressDialog(f"Đang đăng nhập {len(selected_accounts)} tài khoản Telegram...", "Hủy", 0, len(selected_accounts), self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.show()
+        
+        success_count = 0
+        error_count = 0
+        
+        for i, account in enumerate(selected_accounts):
+            if progress.wasCanceled():
+                break
                 
-                # Đảm bảo luôn emit signal cập nhật trạng thái
+            username = account.get("username", "Unknown")
+            telegram_phone = account.get("telegram_phone", "") or account.get("phone_telegram", "") or account.get("phone", "") or username
+            
+            progress.setLabelText(f"Đăng nhập Telegram: {telegram_phone}")
+            progress.setValue(i)
+            
+            try:
+                print(f"[DEBUG] 📱 Đăng nhập Telegram cho: {telegram_phone}")
+                
+                # Tạo client Telegram
+                session_name = f"sessions/{telegram_phone.replace('+', '')}"
+                client = TelegramClient(session_name, api_id, api_hash)
+                
+                # Kết nối và đăng nhập
+                import asyncio
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
                 try:
-                    error_status = f"Lỗi thread: {type(e).__name__}"
-                    account["status"] = error_status
-                    self.status_updated.emit(username, error_status)
-                    print(f"[DEBUG] Đã emit signal lỗi nghiêm trọng cho {username}")
-                except Exception as emit_error:
-                    print(f"[CRITICAL] Không thể emit signal cuối cùng cho {username}: {emit_error}")
-                
-                return "Lỗi thread", "Lỗi", None
-                
-            finally:
-                print(f"[DEBUG] Thread worker KẾT THÚC cho {username}")
-                
-        # 🔍 GET WINDOW POSITIONS: Lấy vị trí cửa sổ cố định
-        window_positions = self.get_window_positions(len(selected_accounts))
+                    async def telegram_login():
+                        await client.connect()
+                        
+                        if not await client.is_user_authorized():
+                            print(f"[DEBUG] 🔐 Gửi mã xác thực đến {telegram_phone}")
+                            # Gửi mã xác thực
+                            await client.send_code_request(telegram_phone)
+                            
+                            # Yêu cầu user nhập mã
+                            code, ok = QInputDialog.getText(
+                                self, 
+                                "Mã xác thực Telegram", 
+                                f"Nhập mã xác thực đã gửi đến {telegram_phone}:"
+                            )
+                            
+                            if not ok or not code.strip():
+                                return False
+                            
+                            try:
+                                await client.sign_in(telegram_phone, code.strip())
+                            except Exception as sign_error:
+                                # Có thể cần 2FA
+                                if "password" in str(sign_error).lower():
+                                    password_2fa = account.get("telegram_2fa", "") or account.get("two_fa_password", "")
+                                    
+                                    if not password_2fa:
+                                        password_2fa, ok = QInputDialog.getText(
+                                            self, 
+                                            "Mật khẩu 2FA", 
+                                            f"Nhập mật khẩu 2FA cho {telegram_phone}:",
+                                            QLineEdit.EchoMode.Password
+                                        )
+                                        if not ok or not password_2fa.strip():
+                                            return False
+                                    
+                                    await client.sign_in(password=password_2fa.strip())
+                                else:
+                                    raise sign_error
+                        
+                        # Lấy thông tin user sau khi đăng nhập thành công
+                        me = await client.get_me()
+                        
+                        # Cập nhật thông tin tài khoản
+                        account["telegram_phone"] = me.phone or telegram_phone
+                        account["telegram_username"] = me.username or ""
+                        account["telegram_id"] = str(me.id)
+                        account["status"] = "✅ Đã đăng nhập Telegram" + (" 👑" if getattr(me, 'premium', False) else "")
+                        account["last_action"] = f"Đăng nhập Telegram lúc {time.strftime('%H:%M:%S')}"
+                        
+                        return True
+                    
+                    result = loop.run_until_complete(telegram_login())
+                    
+                    if result:
+                        success_count += 1
+                        print(f"[SUCCESS] ✅ Đăng nhập Telegram thành công: {telegram_phone}")
+                    else:
+                        error_count += 1
+                        account["status"] = "❌ Đăng nhập Telegram thất bại"
+                        print(f"[ERROR] ❌ Đăng nhập Telegram thất bại: {telegram_phone}")
+                    
+                finally:
+                    try:
+                        loop.run_until_complete(client.disconnect())
+                    except:
+                        pass
+                    loop.close()
+                    
+            except Exception as e:
+                error_count += 1
+                error_msg = str(e)
+                account["status"] = f"❌ Lỗi Telegram: {error_msg[:50]}..."
+                print(f"[ERROR] ❌ Lỗi đăng nhập Telegram {telegram_phone}: {error_msg}")
         
-        # 🔍 VERIFY POSITIONS: In ra tất cả vị trí để kiểm tra
-        print(f"[DEBUG] 🔍 WINDOW POSITIONS VERIFICATION:")
-        for i, pos in enumerate(window_positions):
-            x, y, w, h = pos
-            print(f"[DEBUG] 🪟 Position {i+1}: ({x}, {y}, {w}, {h})")
+        progress.close()
         
-        # 🎴 CARD DEALING EFFECT: Hiệu ứng chia bài khi mở cửa sổ
-        print(f"[DEBUG] 🎴 Bắt đầu hiệu ứng chia bài cho {len(selected_accounts)} cửa sổ")
+        # Lưu và cập nhật UI
+        if success_count > 0 or error_count > 0:
+            self.save_accounts()
+            self.update_account_table()
         
-        for idx, account in enumerate(selected_accounts):
-            pos = window_positions[idx] if window_positions else None
-            
-            # 🎯 Tính toán vị trí trong grid (3 cửa sổ/hàng)
-            col = idx % 3  # Cột (0-2)
-            row = idx // 3  # Hàng (0, 1, 2...)
-            
-            print(f"[DEBUG] 🎴 Chia bài {idx+1}: {account.get('username')} -> Hàng {row+1}, Cột {col+1}")
-            
-            t = threading.Thread(target=login_worker, args=(account, pos), daemon=True)
-            t.start()
-            
-            # 🎴 STAGGERED DELAY: Hiệu ứng chia bài
-            if idx < len(selected_accounts) - 1:
-                # Delay ngắn hơn cho cùng hàng, delay dài hơn cho hàng mới
-                if col == 2:  # Cửa sổ cuối hàng (cột thứ 3)
-                    delay = 0.8  # Delay dài hơn trước khi chuyển hàng mới
-                    print(f"[DEBUG] 🎴 Kết thúc hàng {row+1}, chờ {delay}s trước khi chuyển hàng")
-                else:  # Cửa sổ trong cùng hàng
-                    delay = 0.3  # Delay ngắn giữa các cửa sổ cùng hàng
-                    print(f"[DEBUG] 🎴 Tiếp tục hàng {row+1}, chờ {delay}s")
-                
-                time.sleep(delay)
-
+        # Hiển thị kết quả
+        result_msg = f"📊 Kết quả đăng nhập Telegram:\n\n"
+        result_msg += f"✅ Thành công: {success_count}\n"
+        result_msg += f"❌ Thất bại: {error_count}\n"
+        result_msg += f"📱 Tổng tài khoản: {len(selected_accounts)}\n\n"
+        
+        if success_count > 0:
+            result_msg += f"🎉 Đã đăng nhập thành công {success_count} tài khoản Telegram!"
+        
+        QMessageBox.information(self, "Hoàn thành đăng nhập Telegram", result_msg)
 
     def get_human_delay(self, base_time=1.0, variation=0.5):
         """⚡ HUMAN-LIKE: Tạo delay ngẫu nhiên giống con người"""
