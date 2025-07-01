@@ -1,4 +1,7 @@
-   PySide6
-   webdriver-manager
-   selenium
-   requests
+PySide6
+webdriver-manager
+selenium
+requests
+telethon
+aiohttp
+openai

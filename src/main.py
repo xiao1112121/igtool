@@ -70,7 +70,7 @@ sys.excepthook = handle_exception
 # print(f"[DEBUG] main.py: sys.path sau khi thêm ui_dir: {sys.path}")
 
 try:
-    from src.ui.account_management import AccountManagementTab
+    from src.ui.account_management import AccountManagementTab # type: ignore
     print("[DEBUG] main.py: Đã nhập AccountManagementTab.")
 except ImportError as e:
     print(f"[ERROR] main.py: Lỗi khi nhập AccountManagementTab: {e}")
@@ -104,6 +104,14 @@ except ImportError as e:
     DataScannerTab = None
 
 try:
+    from src.ui.ai_management import AIManagementTab
+    print("[DEBUG] main.py: Đã nhập AIManagementTab.")
+except ImportError as e:
+    print(f"[ERROR] main.py: Lỗi khi nhập AIManagementTab: {e}")
+    logging.error(f"Failed to import AIManagementTab: {e}")
+    AIManagementTab = None
+
+try:
     from src.ui.pixel_ruler import PixelRulerOverlay
     print("[DEBUG] main.py: Đã nhập PixelRulerOverlay.")
     pixel_ruler_available = True
@@ -125,7 +133,10 @@ class MainWindow(QMainWindow):
         
         print("[DEBUG] MainWindow: Bắt đầu khởi tạo.")
         self.setWindowTitle("Instagram Automation Tool")
-        self.setGeometry(100, 100, 1200, 800)
+        
+        # Đặt cửa sổ vào giữa màn hình
+        self.resize(1200, 800)
+        self.center_window()
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         layout = QVBoxLayout(main_widget)
@@ -165,6 +176,30 @@ class MainWindow(QMainWindow):
         self.initialize_tabs()
 
         print("[DEBUG] MainWindow: Hoàn tất khởi tạo MainWindow.")
+
+    def center_window(self):
+        """Đặt cửa sổ vào giữa màn hình"""
+        try:
+            # Lấy thông tin màn hình chính
+            screen = QApplication.primaryScreen()
+            screen_geometry = screen.availableGeometry()
+            
+            # Lấy kích thước cửa sổ
+            window_width = self.width()
+            window_height = self.height()
+            
+            # Tính toán vị trí giữa màn hình (điều chỉnh lên trên một chút)
+            x = (screen_geometry.width() - window_width) // 2 + screen_geometry.x()
+            y = (screen_geometry.height() - window_height) // 2 + screen_geometry.y() - 50  # Lên trên 50px
+            
+            # Đặt vị trí cửa sổ
+            self.move(x, y)
+            
+            print(f"[DEBUG] MainWindow: Đã đặt cửa sổ vào giữa màn hình tại ({x}, {y})")
+        except Exception as e:
+            print(f"[WARN] MainWindow: Không thể đặt cửa sổ vào giữa màn hình: {e}")
+            # Fallback về vị trí mặc định
+            self.move(100, 100)
 
     def initialize_tabs(self):
         """Initialize all tabs with proper error handling"""
@@ -237,6 +272,25 @@ class MainWindow(QMainWindow):
             self.scanner_tab = None
             placeholder = QWidget()
             self.tab_widget.addTab(placeholder, "Quét dữ liệu (Lỗi)")
+
+        # AI Management Tab
+        print("[DEBUG] MainWindow: Đang khởi tạo AIManagementTab.")
+        try:
+            if AIManagementTab is not None:
+                self.ai_tab = AIManagementTab()
+                self.tab_widget.addTab(self.ai_tab, "Quản lý AI")
+                print("[DEBUG] MainWindow: Đã khởi tạo AIManagementTab thành công.")
+            else:
+                print("[WARN] MainWindow: AIManagementTab không khả dụng.")
+                self.ai_tab = None
+                placeholder = QWidget()
+                self.tab_widget.addTab(placeholder, "Quản lý AI (Không khả dụng)")
+        except Exception as e:
+            print(f"[ERROR] MainWindow: Lỗi khi khởi tạo AIManagementTab: {e}")
+            logging.error(f"Failed to initialize AIManagementTab: {e}")
+            self.ai_tab = None
+            placeholder = QWidget()
+            self.tab_widget.addTab(placeholder, "Quản lý AI (Lỗi)")
 
         # Proxy Management Tab
         print("[DEBUG] MainWindow: Đang khởi tạo ProxyManagementTab.")

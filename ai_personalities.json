@@ -1,0 +1,47 @@
+[
+  {
+    "id": "funny",
+    "name": "😄 Hài hước",
+    "response_freq": 7,
+    "response_speed": 4,
+    "enthusiasm": 8,
+    "emotion": "positive",
+    "keywords": [
+      "haha",
+      "lol",
+      "vui quá",
+      "hay ghê",
+      "😂",
+      "🤣"
+    ]
+  },
+  {
+    "id": "serious",
+    "name": "😐 Nghiêm túc",
+    "response_freq": 4,
+    "response_speed": 8,
+    "enthusiasm": 3,
+    "emotion": "neutral",
+    "keywords": [
+      "theo tôi",
+      "cần phải",
+      "nghiêm túc",
+      "quan trọng"
+    ]
+  },
+  {
+    "id": "friendly",
+    "name": "😊 Thân thiện",
+    "response_freq": 6,
+    "response_speed": 5,
+    "enthusiasm": 7,
+    "emotion": "positive",
+    "keywords": [
+      "bạn ơi",
+      "cảm ơn",
+      "rất vui",
+      "😊",
+      "❤️"
+    ]
+  }
+]

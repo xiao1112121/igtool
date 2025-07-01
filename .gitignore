@@ -25,17 +25,67 @@ MANIFEST
 venv/
 env/
 ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Logs
 *.log
+logs/
 application.log
+
+# Sensitive Data - QUAN TRỌNG: Bảo vệ thông tin nhạy cảm
+accounts.json
+accounts.csv
+accounts.txt
+ai_accounts.json
+ai_backup_*.json
+telegram_account.json
+telegram_config.json
+proxy.csv
+proxy.txt
+proxy_status.json
+account_settings.json
+messaging_settings.json
+
+# Sessions - Telegram sessions chứa thông tin đăng nhập
+sessions/
+*.session
+
+# Chrome Driver
+chromedriver-win64/
+
+# Data folders
+data/cache/
+data/logs/
+
+# Backup files
+*.backup_*
+*.bak
+*.bak2
+*_backup_*
+
+# AI Config - Giữ cấu trúc nhưng ẩn API keys
+# ai_config.json sẽ được commit nhưng cần thay API key bằng placeholder
+
+# Test files
+test_*.py
+*_test.py
 
 # Browser profiles và sessions (chứa thông tin nhạy cảm)
 sessions/
 !sessions/.gitkeep
 
 # Chrome cache và temp files
-chromedriver-win64/
 *.tmp
 *.temp
 
@@ -89,18 +139,12 @@ chromedriver-win64/
 **/lockfile
 **/ukm_db
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Selenium wire temp files
+.seleniumwire/
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Selenium wire temp files
-.seleniumwire/
 
 # Test files
 test_*.py
