@@ -16,21 +16,6 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog, QSlider)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent, QMetaObject, Slot
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QGuiApplication, QAction
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from webdriver_manager.chrome import ChromeDriverManager
-from seleniumwire import webdriver as wire_webdriver
-from seleniumwire.utils import decode
-from twocaptcha import TwoCaptcha
-from src.ui.utils import random_delay, wait_for_element, wait_for_element_clickable, retry_operation
-from src.ui.context_menus import AccountContextMenu
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from selenium.webdriver.common.keys import Keys
 
 class CheckboxDelegate(QStyledItemDelegate):
     # Sử dụng một UserRole tùy chỉnh để tránh xung đột với Qt.CheckStateRole mặc định
