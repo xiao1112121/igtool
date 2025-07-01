@@ -421,13 +421,24 @@ class FolderManagerDialog(QDialog):
 
             # Cột 0: STT
             self.account_table.setItem(row_idx, 0, QTableWidgetItem(str(row_idx + 1)))
-            # Cột 1: Số điện thoại
-            self.account_table.setItem(row_idx, 1, QTableWidgetItem(username))
+            # Cột 1: Số điện thoại - hiển thị số điện thoại Telegram thật
+            telegram_phone = account.get("telegram_phone", "") or account.get("phone_telegram", "") or account.get("tg_phone", "") or account.get("phone_number", "") or account.get("phone", "")
+            if not telegram_phone:
+                # Fallback: nếu không có số điện thoại Telegram, hiển thị username (có thể là số điện thoại)
+                telegram_phone = account.get("username", "")
+                if not telegram_phone:
+                    telegram_phone = "Chưa có số điện thoại"
+            self.account_table.setItem(row_idx, 1, QTableWidgetItem(telegram_phone))
             # Cột 2: Mật khẩu 2FA
             self.account_table.setItem(row_idx, 2, QTableWidgetItem(telegram_2fa))
-            # Cột 3: Username
-            account_username = account.get("telegram_username", "") or account.get("username_telegram", "") or account.get("tg_username", "") or "Chưa có username"
-            self.account_table.setItem(row_idx, 3, QTableWidgetItem(account_username))
+            # Cột 3: Username - hiển thị username Telegram thật
+            telegram_username = account.get("telegram_username", "") or account.get("username_telegram", "") or account.get("tg_username", "") or ""
+            # Đảm bảo có @ ở đầu nếu là username Telegram
+            if telegram_username and not telegram_username.startswith("@"):
+                telegram_username = "@" + telegram_username
+            if not telegram_username:
+                telegram_username = "Chưa có username"
+            self.account_table.setItem(row_idx, 3, QTableWidgetItem(telegram_username))
             # Cột 4: ID
             account_id = account.get("telegram_id", "") or account.get("id_telegram", "") or account.get("tg_id", "") or account.get("user_id", "") or "Chưa có ID"
             self.account_table.setItem(row_idx, 4, QTableWidgetItem(account_id))
@@ -494,7 +505,7 @@ class FolderManagerDialog(QDialog):
             self.save_folder_map()
 
     def move_account_to_folder(self, row: int):
-        username_item = self.account_table.item(row, 1)  # Cột 1 là số điện thoại (username)
+        username_item = self.account_table.item(row, 3)  # Cột 3 là username thật
         username = username_item.text() if username_item else ""
         if not username:
             return
@@ -513,7 +524,7 @@ class FolderManagerDialog(QDialog):
             self.folders_updated.emit()
 
     def remove_account_from_folder(self, row: int):
-        username_item = self.account_table.item(row, 1)  # Cột 1 là số điện thoại (username)
+        username_item = self.account_table.item(row, 3)  # Cột 3 là username thật
         username = username_item.text() if username_item else ""
         if not username:
             return

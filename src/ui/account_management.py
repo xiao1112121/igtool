@@ -864,9 +864,23 @@ class AccountManagementTab(QWidget):
             # Tìm tất cả file .session
             session_files = glob.glob(os.path.join(sessions_dir, "*.session"))
             
+            print(f"\n{'='*50}")
+            print(f"🔍 TELEGRAM SESSION DISCOVERY")
+            print(f"{'='*50}")
+            print(f"📁 Sessions directory: {sessions_dir}")
+            print(f"🔎 Searching for .session files...")
+            
             if not session_files:
+                print(f"❌ No .session files found in directory")
                 QMessageBox.information(self, "Thông báo", f"Không tìm thấy file session nào trong:\n{sessions_dir}")
                 return
+            
+            print(f"✅ Found {len(session_files)} session files:")
+            for i, session_file in enumerate(session_files, 1):
+                session_name = os.path.splitext(os.path.basename(session_file))[0]
+                file_size = os.path.getsize(session_file)
+                print(f"  {i}. {session_name} ({file_size} bytes)")
+            print(f"{'='*50}\n")
             
             # Hỏi user có muốn load không để tránh tự động
             reply = QMessageBox.question(
@@ -921,6 +935,23 @@ class AccountManagementTab(QWidget):
             
             print(f"[DEBUG] 🔄 Starting session validation for {len(session_files)} files...")
             
+            # Tạo log file để lưu chi tiết errors
+            import time
+            log_filename = f"data/logs/telegram_session_load_{time.strftime('%Y%m%d_%H%M%S')}.log"
+            os.makedirs(os.path.dirname(log_filename), exist_ok=True)
+            
+            def write_log(message):
+                """Write message to both console and log file"""
+                print(message)
+                try:
+                    with open(log_filename, "a", encoding="utf-8") as log_file:
+                        log_file.write(f"{time.strftime('%H:%M:%S')} - {message}\n")
+                except:
+                    pass  # Không để lỗi ghi log làm crash app
+            
+            write_log(f"[LOG] 📝 Session loading started - Log file: {log_filename}")
+            write_log(f"[LOG] 📁 Processing {len(session_files)} session files from: {sessions_dir}")
+            
             # Load từng session
             for i, session_file in enumerate(session_files):
                 if progress.wasCanceled():
@@ -933,7 +964,7 @@ class AccountManagementTab(QWidget):
                     progress.setLabelText(f"Đang load session: {session_name}")
                     progress.setValue(i)
                     
-                    print(f"[DEBUG] 📱 Validating session: {session_name}")
+                    write_log(f"[DEBUG] 📱 Validating session: {session_name}")
                     
                     # Tạo client với session
                     client = TelegramClient(session_file.replace('.session', ''), api_id, api_hash)
@@ -945,26 +976,62 @@ class AccountManagementTab(QWidget):
                     
                     try:
                         async def get_user_info():
-                            await client.connect()
-                            
-                            if not await client.is_user_authorized():
+                            try:
+                                write_log(f"[DEBUG] 🔗 Attempting to connect to Telegram for session: {session_name}")
+                                await client.connect()
+                                write_log(f"[DEBUG] ✅ Connected successfully to Telegram for session: {session_name}")
+                                
+                                write_log(f"[DEBUG] 🔐 Checking authorization status for session: {session_name}")
+                                if not await client.is_user_authorized():
+                                    write_log(f"[ERROR] ❌ Session {session_name} is not authorized (expired or invalid)")
+                                    return None
+                                
+                                write_log(f"[DEBUG] ✅ Session {session_name} is authorized, getting user info...")
+                                # Lấy thông tin user hiện tại
+                                me = await client.get_me()
+                                
+                                if not me:
+                                    write_log(f"[ERROR] ❌ Could not get user info for session: {session_name}")
+                                    return None
+                                
+                                write_log(f"[DEBUG] 📋 Retrieved user info for session {session_name}: ID={me.id}, Phone={me.phone}, Username={me.username}")
+                                
+                                # Thông tin cơ bản
+                                user_info = {
+                                    'id': me.id,
+                                    'phone': me.phone or session_name,
+                                    'username': me.username or '',
+                                    'first_name': me.first_name or '',
+                                    'last_name': me.last_name or '',
+                                    'is_premium': getattr(me, 'premium', False),
+                                    'is_verified': getattr(me, 'verified', False)
+                                }
+                                
+                                write_log(f"[DEBUG] ✅ Successfully processed user info for session: {session_name}")
+                                return user_info
+                                
+                            except Exception as inner_e:
+                                inner_error_type = type(inner_e).__name__
+                                inner_error_msg = str(inner_e)
+                                write_log(f"[ERROR] 💥 Exception in get_user_info for {session_name}: {inner_error_type}: {inner_error_msg}")
+                                
+                                # Phân loại lỗi chi tiết hơn
+                                if "AuthKeyNotFound" in inner_error_msg:
+                                    write_log(f"[ERROR] 🔑 Session {session_name}: Authentication key not found - session expired")
+                                elif "SessionPasswordNeeded" in inner_error_msg:
+                                    write_log(f"[ERROR] 🔐 Session {session_name}: 2FA password required but not provided")
+                                elif "UserDeactivated" in inner_error_msg:
+                                    write_log(f"[ERROR] 🚫 Session {session_name}: User account is deactivated")
+                                elif "PhoneNumberInvalid" in inner_error_msg:
+                                    write_log(f"[ERROR] 📱 Session {session_name}: Phone number is invalid")
+                                elif "FloodWait" in inner_error_msg:
+                                    write_log(f"[ERROR] ⏱️ Session {session_name}: Rate limited by Telegram")
+                                elif "ConnectionError" in inner_error_type:
+                                    write_log(f"[ERROR] 🌐 Session {session_name}: Network connection failed")
+                                else:
+                                    write_log(f"[ERROR] ❓ Session {session_name}: Unhandled error in get_user_info")
+                                
                                 return None
-                            
-                            # Lấy thông tin user hiện tại
-                            me = await client.get_me()
-                            
-                            # Thông tin cơ bản
-                            user_info = {
-                                'id': me.id,
-                                'phone': me.phone or session_name,
-                                'username': me.username or '',
-                                'first_name': me.first_name or '',
-                                'last_name': me.last_name or '',
-                                'is_premium': getattr(me, 'premium', False),
-                                'is_verified': getattr(me, 'verified', False)
-                            }
-                            
-                            return user_info
                         
                         user_info = loop.run_until_complete(get_user_info())
                         
@@ -977,8 +1044,11 @@ class AccountManagementTab(QWidget):
                                 # Thêm vào danh sách accounts
                                 new_account = {
                                     "selected": False,
-                                    "username": phone_or_username,
-                                    "password": "",
+                                    "username": user_info['username'] or user_info['phone'],  # Username thật
+                                    "password": "",  # Không lưu password
+                                    "telegram_phone": user_info['phone'],  # ⭐ LƯU SỐ ĐIỆN THOẠI TELEGRAM THẬT
+                                    "telegram_username": user_info['username'],  # ⭐ LƯU USERNAME TELEGRAM
+                                    "telegram_id": str(user_info['id']),  # ⭐ LƯU ID TELEGRAM
                                     "fullname": f"{user_info['first_name']} {user_info['last_name']}".strip(),
                                     "proxy": "",
                                     "status": "✅ Telegram Session Active" + (" 👑" if user_info['is_premium'] else "") + (" ✓" if user_info['is_verified'] else ""),
@@ -991,23 +1061,52 @@ class AccountManagementTab(QWidget):
                                 }
                                 self.accounts.append(new_account)
                                 loaded_count += 1
-                                print(f"[DEBUG] ✅ Loaded session: {phone_or_username} - {user_info['first_name']}")
+                                write_log(f"[SUCCESS] ✅ Loaded session: {phone_or_username} - {user_info['first_name']} {user_info['last_name']} (ID: {user_info['id']})")
                             else:
-                                print(f"[DEBUG] 🔄 Session already exists: {phone_or_username}")
+                                error_count += 1
+                                write_log(f"[SKIP] 🔄 Session already exists in accounts list: {phone_or_username}")
+                                write_log(f"[SKIP] 📋 Existing account found with same username/phone, skipping duplicate")
                         else:
                             error_count += 1
-                            print(f"[DEBUG] ❌ Failed to load session: {session_name}")
+                            write_log(f"[ERROR] ❌ Failed to get user info from session: {session_name}")
+                            write_log(f"[ERROR] 📋 Possible reasons: Session expired, not authorized, or network issues")
                     
                     finally:
                         try:
                             loop.run_until_complete(client.disconnect())
-                        except:
-                            pass
+                        except Exception as disconnect_error:
+                            write_log(f"[WARNING] ⚠️ Error disconnecting client for {session_name}: {disconnect_error}")
                         loop.close()
                     
                 except Exception as e:
                     error_count += 1
-                    print(f"[ERROR] ⚠️ Error loading session {session_name}: {e}")
+                    error_type = type(e).__name__
+                    error_msg = str(e)
+                    
+                    # Chi tiết lỗi cụ thể
+                    if "AuthKeyNotFound" in error_msg or "SESSION_PASSWORD_NEEDED" in error_msg:
+                        write_log(f"[ERROR] 🔐 Session {session_name}: Authentication failed - {error_type}: {error_msg}")
+                        write_log(f"[ERROR] 💡 Solution: Session may be expired or 2FA required. Re-login required.")
+                    elif "ConnectionError" in error_type or "TimeoutError" in error_type:
+                        write_log(f"[ERROR] 🌐 Session {session_name}: Network connection failed - {error_type}: {error_msg}")
+                        write_log(f"[ERROR] 💡 Solution: Check internet connection or try again later.")
+                    elif "FloodWaitError" in error_msg:
+                        write_log(f"[ERROR] ⏱️ Session {session_name}: Rate limited by Telegram - {error_type}: {error_msg}")
+                        write_log(f"[ERROR] 💡 Solution: Wait before trying again, too many requests.")
+                    elif "PhoneNumberInvalidError" in error_msg:
+                        write_log(f"[ERROR] 📱 Session {session_name}: Invalid phone number - {error_type}: {error_msg}")
+                        write_log(f"[ERROR] 💡 Solution: Check if phone number format is correct.")
+                    elif "UserDeactivatedError" in error_msg or "UserDeactivatedBanError" in error_msg:
+                        write_log(f"[ERROR] 🚫 Session {session_name}: Account deactivated/banned - {error_type}: {error_msg}")
+                        write_log(f"[ERROR] 💡 Solution: Account is banned by Telegram, cannot be used.")
+                    elif "DatabaseError" in error_type or "sqlite3" in error_msg.lower():
+                        write_log(f"[ERROR] 💾 Session {session_name}: Session file corrupted - {error_type}: {error_msg}")
+                        write_log(f"[ERROR] 💡 Solution: Delete corrupted .session file and re-login.")
+                    else:
+                        write_log(f"[ERROR] ❓ Session {session_name}: Unknown error - {error_type}: {error_msg}")
+                        write_log(f"[ERROR] 💡 Solution: Check session file integrity or re-create session.")
+                    
+                    write_log(f"[ERROR] 📁 Session file path: {session_file}")
                     continue
             
             progress.close()
@@ -1017,17 +1116,52 @@ class AccountManagementTab(QWidget):
                 self.save_accounts()
                 self.update_account_table()
             
-            # Hiển thị kết quả
+            # Tạo log chi tiết
+            print(f"\n{'='*60}")
+            print(f"📊 TELEGRAM SESSION LOADING SUMMARY")
+            print(f"{'='*60}")
+            print(f"📁 Total session files found: {len(session_files)}")
+            print(f"✅ Successfully loaded: {loaded_count}")
+            print(f"❌ Failed to load: {error_count}")
+            print(f"🔄 Processing rate: {((loaded_count + error_count) / len(session_files) * 100):.1f}%")
+            
+            if loaded_count > 0:
+                print(f"\n🎉 NEW ACCOUNTS ADDED TO LIST:")
+                # Hiển thị 5 tài khoản mới được thêm gần nhất
+                recent_accounts = self.accounts[-loaded_count:]
+                for i, acc in enumerate(recent_accounts[-5:], 1):
+                    phone = acc.get('telegram_phone', 'N/A')
+                    username = acc.get('telegram_username', 'N/A')
+                    print(f"  {i}. Phone: {phone}, Username: @{username if username else 'None'}")
+                if loaded_count > 5:
+                    print(f"  ... and {loaded_count - 5} more accounts")
+            
+            if error_count > 0:
+                print(f"\n❌ COMMON ISSUES FOUND:")
+                print(f"  - Check console logs above for detailed error analysis")
+                print(f"  - Most common: Session expired, 2FA required, network issues")
+                print(f"  - Solution: Re-login failed sessions or check network connection")
+            
+            print(f"{'='*60}\n")
+            
+            # Hiển thị kết quả cho user
             result_msg = f"📊 Kết quả load sessions:\n\n"
             result_msg += f"✅ Loaded thành công: {loaded_count}\n"
             result_msg += f"❌ Lỗi/không thể load: {error_count}\n"
             result_msg += f"📁 Tổng session files: {len(session_files)}\n\n"
             
             if loaded_count > 0:
-                result_msg += f"🎉 Đã thêm {loaded_count} tài khoản Telegram vào bảng!"
+                result_msg += f"🎉 Đã thêm {loaded_count} tài khoản Telegram vào bảng!\n\n"
+            
+            if error_count > 0:
+                result_msg += f"⚠️ {error_count} sessions không load được.\n"
+                result_msg += f"📋 Xem console logs để biết chi tiết lỗi cụ thể.\n"
+                result_msg += f"📝 Chi tiết đầy đủ được lưu trong: {log_filename}\n\n"
+                
+            result_msg += f"💡 Tip: Các session lỗi có thể cần đăng nhập lại hoặc kiểm tra kết nối mạng."
             
             QMessageBox.information(self, "Hoàn thành", result_msg)
-            print(f"[DEBUG] 🏁 Session loading completed: {loaded_count} success, {error_count} errors")
+            print(f"[SUMMARY] 🏁 Session loading completed: {loaded_count} success, {error_count} errors out of {len(session_files)} total files")
             
         except Exception as e:
             QMessageBox.critical(self, "Lỗi", f"Lỗi load sessions: {str(e)}")
@@ -1080,10 +1214,16 @@ class AccountManagementTab(QWidget):
             stt_item.setTextAlignment(Qt.AlignCenter)
             self.account_table.setItem(row_idx, 1, stt_item)
 
-            # Số điện thoại - hiển thị username (cột 2)
-            username_item = QTableWidgetItem(account.get("username", ""))
-            username_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            self.account_table.setItem(row_idx, 2, username_item)
+            # Số điện thoại - hiển thị số điện thoại Telegram thật (cột 2)
+            telegram_phone = account.get("telegram_phone", "") or account.get("phone_telegram", "") or account.get("tg_phone", "") or account.get("phone_number", "") or account.get("phone", "")
+            if not telegram_phone:
+                # Fallback: nếu không có số điện thoại Telegram, hiển thị username (có thể là số điện thoại)
+                telegram_phone = account.get("username", "")
+                if not telegram_phone:
+                    telegram_phone = "Chưa có số điện thoại"
+            phone_item = QTableWidgetItem(telegram_phone)
+            phone_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 2, phone_item)
 
             # Mật khẩu 2FA - hiển thị mật khẩu 2FA Telegram (cột 3)
             telegram_2fa = account.get("telegram_2fa", "") or account.get("two_fa_password", "") or account.get("password_2fa", "") or account.get("twofa", "")
@@ -1093,13 +1233,16 @@ class AccountManagementTab(QWidget):
             phone_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.account_table.setItem(row_idx, 3, phone_item)
 
-            # Username - hiển thị username của tài khoản (cột 4)
-            account_username = account.get("telegram_username", "") or account.get("username_telegram", "") or account.get("tg_username", "") or ""
-            if not account_username:
-                account_username = "Chưa có username"
-            username_tg_item = QTableWidgetItem(account_username)
-            username_tg_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            self.account_table.setItem(row_idx, 4, username_tg_item)
+            # Username - hiển thị username Telegram thật (cột 4)
+            telegram_username = account.get("telegram_username", "") or account.get("username_telegram", "") or account.get("tg_username", "") or ""
+            # Đảm bảo có @ ở đầu nếu là username Telegram
+            if telegram_username and not telegram_username.startswith("@"):
+                telegram_username = "@" + telegram_username
+            if not telegram_username:
+                telegram_username = "Chưa có username"
+            username_item = QTableWidgetItem(telegram_username)
+            username_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 4, username_item)
 
             # ID - hiển thị ID của tài khoản (cột 5)
             account_id = account.get("telegram_id", "") or account.get("id_telegram", "") or account.get("tg_id", "") or account.get("user_id", "") or ""

@@ -1181,13 +1181,28 @@ class MessagingTab(QWidget):
             item.setData(CheckboxDelegate.CheckboxStateRole, acc.get("selected", False))
             self.account_table.setItem(i, 0, item)
             self.account_table.setItem(i, 1, QTableWidgetItem(str(i+1)))
-            self.account_table.setItem(i, 2, QTableWidgetItem(acc.get("username", "")))   # Số điện thoại (username)
+            # Số điện thoại - hiển thị số điện thoại Telegram thật (cột 2)
+            telegram_phone = acc.get("telegram_phone", "") or acc.get("phone_telegram", "") or acc.get("tg_phone", "") or acc.get("phone_number", "") or acc.get("phone", "")
+            if not telegram_phone:
+                # Fallback: nếu không có số điện thoại Telegram, hiển thị username (có thể là số điện thoại)
+                telegram_phone = acc.get("username", "")
+                if not telegram_phone:
+                    telegram_phone = "Chưa có số điện thoại"
+            self.account_table.setItem(i, 2, QTableWidgetItem(telegram_phone))
+            # Mật khẩu 2FA (cột 3)
             telegram_2fa = acc.get("telegram_2fa", "") or acc.get("two_fa_password", "") or acc.get("password_2fa", "") or acc.get("twofa", "") or "Chưa có 2FA"
-            self.account_table.setItem(i, 3, QTableWidgetItem(telegram_2fa))  # Mật khẩu 2FA
-            account_username = acc.get("telegram_username", "") or acc.get("username_telegram", "") or acc.get("tg_username", "") or "Chưa có username"
-            self.account_table.setItem(i, 4, QTableWidgetItem(account_username))  # Username
+            self.account_table.setItem(i, 3, QTableWidgetItem(telegram_2fa))
+            # Username - hiển thị username Telegram thật (cột 4)
+            telegram_username = acc.get("telegram_username", "") or acc.get("username_telegram", "") or acc.get("tg_username", "") or ""
+            # Đảm bảo có @ ở đầu nếu là username Telegram
+            if telegram_username and not telegram_username.startswith("@"):
+                telegram_username = "@" + telegram_username
+            if not telegram_username:
+                telegram_username = "Chưa có username"
+            self.account_table.setItem(i, 4, QTableWidgetItem(telegram_username))
+            # ID (cột 5)
             account_id = acc.get("telegram_id", "") or acc.get("id_telegram", "") or acc.get("tg_id", "") or acc.get("user_id", "") or "Chưa có ID"
-            self.account_table.setItem(i, 5, QTableWidgetItem(account_id))  # ID
+            self.account_table.setItem(i, 5, QTableWidgetItem(account_id))
             self.account_table.setItem(i, 6, QTableWidgetItem(acc.get("status", "")))    # Trạng thái tài khoản
             self.account_table.setItem(i, 7, QTableWidgetItem(str(acc.get("success", ""))))  # Tin nhắn gửi
             self.account_table.setItem(i, 8, QTableWidgetItem(acc.get("state", "")))     # Chi tiết quá trình

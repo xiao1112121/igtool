@@ -14,7 +14,7 @@ class AccountContextMenu(QMenu):
         # Debug: In ra folder_map khi mở menu
         print("[DEBUG] folder_map khi mở menu:", self.parent.folder_map)
         # Menu chính
-        self.add_action("Đăng nhập", self.parent.login_selected_accounts)
+        self.add_action("Check live tài khoản", self.parent.login_selected_accounts)
         
         # Menu con: Chọn/Bỏ chọn
         select_deselect_menu = self.addMenu("Chọn/Bỏ chọn")
