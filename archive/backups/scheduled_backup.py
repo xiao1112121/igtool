@@ -53,7 +53,7 @@ class ScheduledBackup:
                 sys.executable, 
                 "auto_backup.py", 
                 message
-            ], check=False, capture_output=True, text=True)
+            ], check=False, capture_output=True, text=True, cwd=os.getcwd())
             
             if result.returncode == 0:
                 print("✅ Backup thành công!")

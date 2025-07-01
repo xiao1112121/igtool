@@ -1,14 +1,17 @@
 [
   {
     "content": "test1",
-    "media": "C:/Users/xiao/Pictures/Snipaste_2025-06-07_10-02-07.png"
+    "media": "C:/Users/xiao/Pictures/Snipaste_2025-06-07_10-02-07.png",
+    "selected": true
   },
   {
     "content": "test",
-    "media": "C:/Users/xiao/Pictures/Snipaste_2025-06-07_10-02-07.png"
+    "media": "C:/Users/xiao/Pictures/Snipaste_2025-06-06_08-30-58.png",
+    "selected": true
   },
   {
-    "content": "test2",
-    "media": "C:/Users/xiao/Pictures/游戏图标/Crazy Money.jpg"
+    "content": "",
+    "media": "",
+    "selected": true
   }
 ]

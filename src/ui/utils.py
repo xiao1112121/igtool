@@ -3,6 +3,8 @@ import random
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from PySide6.QtWidgets import QSpinBox
+from PySide6.QtGui import QFont
 
 def random_delay(min_seconds=0.5, max_seconds=1.5):
     """Tạo delay ngẫu nhiên giữa các thao tác"""
@@ -70,3 +72,49 @@ def retry_operation(operation_func, max_retries=3, retry_delay=3, *args, **kwarg
             else:
                 print(f"[ERROR] Không thể thực hiện operation sau {max_retries} lần thử")
                 raise last_error 
+
+def create_windows_spinbox(min_val=1, max_val=100, default_value=1):
+    """
+    Tạo SpinBox với style chuẩn Windows đồng bộ cho tất cả các tab
+    
+    Args:
+        min_val: Giá trị tối thiểu
+        max_val: Giá trị tối đa  
+        default_value: Giá trị mặc định
+    
+    Returns:
+        QSpinBox: SpinBox với style chuẩn Windows
+    """
+    spin = QSpinBox()
+    spin.setFont(QFont("Segoe UI", 9))
+    spin.setFixedSize(54, 26)  # Kích thước chuẩn Windows
+    spin.setRange(min_val, max_val)
+    spin.setValue(default_value)
+    
+    # Style chuẩn Windows
+    spin.setStyleSheet("""
+        QSpinBox {
+            font-size: 9px;
+            font-weight: normal;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background-color: white;
+            padding: 2px 4px;
+            margin: 0px;
+        }
+        QSpinBox::up-button, QSpinBox::down-button {
+            width: 14px;
+            height: 12px;
+            border: none;
+            background-color: #f0f0f0;
+        }
+        QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+            background-color: #e0e0e0;
+        }
+        QSpinBox::up-arrow, QSpinBox::down-arrow {
+            width: 6px;
+            height: 6px;
+        }
+    """)
+    
+    return spin 

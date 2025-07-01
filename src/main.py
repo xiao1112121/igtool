@@ -1,13 +1,24 @@
 import sys
+import os
+
+# Apply blinker compatibility patch before any other imports
+try:
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    # Apply blinker patch if available
+        import blinker_patch  # Apply the patch
+except Exception as e:
+    print(f"[WARN] Could not apply blinker patch: {e}")
+
 from PySide6.QtWidgets import (QApplication, QMainWindow, QTabWidget,
                              QWidget, QVBoxLayout, QStyleFactory, QFrame, QMessageBox)
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtCore import QThread, QTimer
-import os
 import traceback
 import logging
 from types import TracebackType
-from typing import Optional, Any
+from typing import Optional, Any, List, Dict
 
 # Thêm thư mục gốc của dự án vào sys.path để cho phép import các module trong src
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -90,7 +101,7 @@ try:
 except ImportError as e:
     print(f"[ERROR] main.py: Lỗi khi nhập DataScannerTab: {e}")
     logging.error(f"Failed to import DataScannerTab: {e}")
-    sys.exit(1)
+    DataScannerTab = None
 
 try:
     from src.ui.pixel_ruler import PixelRulerOverlay
@@ -124,7 +135,27 @@ class MainWindow(QMainWindow):
         # Header (logo + nền)
         header = QFrame()
         header.setFixedHeight(80)
-        header.setStyleSheet("background-image: url('cityline.png'); background-repeat: repeat-x; background-position: top center; background-color: #eaf6ff; border: none;")
+        # Fix image path
+        image_path = os.path.join(os.path.dirname(__file__), 'cityline.png')
+        if os.path.exists(image_path):
+            header.setStyleSheet(f"""
+                background-image: url('{image_path.replace(os.sep, '/')}');
+                background-repeat: repeat-x;
+                background-position: top center;
+                background-color: #eaf6ff;
+                border: none;
+                border-bottom: 2px solid #1976D2;
+                border-radius: 0px;
+            """)
+        else:
+            # Fallback gradient header
+            header.setStyleSheet("""
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #E3F2FD, stop:0.5 #BBDEFB, stop:1 #90CAF9);
+                border: none;
+                border-bottom: 2px solid #1976D2;
+                border-radius: 0px;
+            """)
         layout.addWidget(header)
 
         self.tab_widget = QTabWidget()
@@ -147,20 +178,21 @@ class MainWindow(QMainWindow):
                 # Set shorter timeouts for the account tab
                 if hasattr(self.account_tab, 'init_driver'):
                     original_init = self.account_tab.init_driver
-                    def init_driver_with_timeout(proxy: Optional[Any] = None, username: Optional[Any] = None):
+                    def init_driver_with_timeout(proxy: Optional[Dict[str, Any]] = None, username: Optional[str] = None):
                         driver = original_init(proxy, username)
                         if driver:
                             try:
                                 driver.set_page_load_timeout(15)  # 15 second page load timeout
                                 driver.implicitly_wait(5)        # 5 second implicit wait
-                            except Exception as e:
-                                print(f"[DEBUG] Could not set timeouts: {e}")
+                                driver.set_script_timeout(12)    # 12 second script timeout
+                                print("[DEBUG] MainWindow: Đã áp dụng timeout limits cho WebDriver.")
+                            except Exception as timeout_error:
+                                print(f"[WARN] MainWindow: Không thể áp dụng timeout: {timeout_error}")
                         return driver
                     self.account_tab.init_driver = init_driver_with_timeout
-                    print("[DEBUG] MainWindow: Đã áp dụng timeout limits cho WebDriver.")
-            except Exception as patch_error:
-                print(f"[WARN] MainWindow: Không thể áp dụng timeout limits: {patch_error}")
-                logging.warning(f"Could not apply timeout limits: {patch_error}")
+                print("[DEBUG] MainWindow: Đã áp dụng timeout limits cho WebDriver.")
+            except Exception as e:
+                print(f"[WARN] MainWindow: Không thể áp dụng timeout limits: {e}")
             
             self.tab_widget.addTab(self.account_tab, "Quản lý Tài khoản")
             print("[DEBUG] MainWindow: Đã khởi tạo AccountManagementTab thành công.")
@@ -172,7 +204,7 @@ class MainWindow(QMainWindow):
             # Add placeholder tab
             placeholder = QWidget()
             self.tab_widget.addTab(placeholder, "Quản lý Tài khoản (Lỗi)")
-        
+
         # Messaging Tab
         print("[DEBUG] MainWindow: Đang khởi tạo MessagingTab.")
         try:
@@ -189,9 +221,16 @@ class MainWindow(QMainWindow):
         # Data Scanner Tab
         print("[DEBUG] MainWindow: Đang khởi tạo DataScannerTab.")
         try:
-            self.scanner_tab = DataScannerTab()
-            self.tab_widget.addTab(self.scanner_tab, "Quét dữ liệu")
-            print("[DEBUG] MainWindow: Đã khởi tạo DataScannerTab thành công.")
+            if DataScannerTab is not None:
+                # ⭐ TRUYỀN REFERENCE CỦA ACCOUNT TAB VÀO DATA SCANNER
+                self.scanner_tab = DataScannerTab(self.account_tab)
+                self.tab_widget.addTab(self.scanner_tab, "Quét dữ liệu")
+                print("[DEBUG] MainWindow: Đã khởi tạo DataScannerTab thành công.")
+            else:
+                print("[WARN] MainWindow: DataScannerTab không khả dụng.")
+                self.scanner_tab = None
+                placeholder = QWidget()
+                self.tab_widget.addTab(placeholder, "Quét dữ liệu (Không khả dụng)")
         except Exception as e:
             print(f"[ERROR] MainWindow: Lỗi khi khởi tạo DataScannerTab: {e}")
             logging.error(f"Failed to initialize DataScannerTab: {e}")
@@ -225,6 +264,27 @@ class MainWindow(QMainWindow):
                 print(f"[ERROR] MainWindow: Lỗi khi kết nối tín hiệu proxy_updated: {e}")
                 logging.error(f"Failed to connect proxy_updated signal: {e}")
 
+        # ⭐ ĐỒNG BỘ FOLDERS GIỮA CÁC TAB
+        try:
+            # Connect folders_updated signal từ account_tab tới data_scanner_tab
+            if hasattr(self, 'account_tab') and hasattr(self, 'scanner_tab') and self.account_tab and self.scanner_tab:
+                if hasattr(self.account_tab, 'folders_updated') and hasattr(self.scanner_tab, 'on_folders_updated'):
+                    self.account_tab.folders_updated.connect(self.scanner_tab.on_folders_updated)
+                    print("[DEBUG] MainWindow: Đã kết nối tín hiệu folders_updated cho DataScannerTab.")
+                else:
+                    print("[DEBUG] MainWindow: Bỏ qua kết nối folders_updated cho DataScannerTab (method không tồn tại).")
+            
+            # Connect folders_updated signal từ account_tab tới messaging_tab
+            if hasattr(self, 'account_tab') and hasattr(self, 'messaging_tab') and self.account_tab and self.messaging_tab:
+                if hasattr(self.account_tab, 'folders_updated') and hasattr(self.messaging_tab, 'on_folders_updated'):
+                    self.account_tab.folders_updated.connect(self.messaging_tab.on_folders_updated)
+                    print("[DEBUG] MainWindow: Đã kết nối tín hiệu folders_updated cho MessagingTab.")
+                else:
+                    print("[DEBUG] MainWindow: Bỏ qua kết nối folders_updated cho MessagingTab (method không tồn tại).")
+        except Exception as e:
+            print(f"[ERROR] MainWindow: Lỗi khi kết nối tín hiệu folders_updated: {e}")
+            logging.error(f"Failed to connect folders_updated signal: {e}")
+
     def cleanup_resources(self):
         """Periodic cleanup of resources"""
         try:
@@ -232,13 +292,14 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'account_tab') and self.account_tab:
                 # Clean up any orphaned drivers
                 if hasattr(self.account_tab, 'active_drivers'):
-                    for driver in list(self.account_tab.active_drivers):
+                    active_drivers: List[Any] = self.account_tab.active_drivers
+                    for driver in list(active_drivers):
                         try:
                             if driver and hasattr(driver, 'quit'):
                                 driver.quit()
                         except Exception:
                             pass
-                    self.account_tab.active_drivers.clear()
+                    active_drivers.clear()
         except Exception as e:
             logging.warning(f"Error during cleanup: {e}")
 
@@ -285,7 +346,7 @@ class MainWindow(QMainWindow):
                     logging.warning(f"Error closing drivers: {e}")
             
             # Wait for threads to finish
-            QThread.msleep(1000)
+            QThread.msleep(1000)  # Wait 1 second for threads to cleanup
             
             print("[DEBUG] MainWindow: Hoàn tất cleanup.")
             super().closeEvent(event)
@@ -294,19 +355,71 @@ class MainWindow(QMainWindow):
             logging.error(f"Error during closeEvent: {e}")
             super().closeEvent(event)
 
-def apply_qss(app: QApplication, filename: str = "src/style.qss") -> None:
+def apply_qss(app: QApplication, use_modern: bool = True) -> None:
+    """Apply stylesheet to the application with option for modern or classic theme"""
+    
+    # Choose stylesheet based on preference
+    if use_modern:
+        filename = "src/style_modern.qss"
+        fallback = "src/style.qss"
+    else:
+        filename = "src/style.qss"
+        fallback = None
+    
     print(f"[DEBUG] apply_qss: Đang cố gắng đọc file CSS: {filename}")
+    
+    # Try primary stylesheet
     try:
         with open(filename, "r", encoding="utf-8") as f:
             stylesheet = f.read()
             app.setStyleSheet(stylesheet)
         print(f"[DEBUG] apply_qss: Đã áp dụng style từ {filename}")
+        return
     except FileNotFoundError:
-        print(f"[ERROR] apply_qss: File CSS không tìm thấy tại {filename}")
+        print(f"[WARN] apply_qss: File CSS không tìm thấy tại {filename}")
+        if fallback:
+            print(f"[DEBUG] apply_qss: Thử fallback: {fallback}")
+            try:
+                with open(fallback, "r", encoding="utf-8") as f:
+                    stylesheet = f.read()
+                    app.setStyleSheet(stylesheet)
+                print(f"[DEBUG] apply_qss: Đã áp dụng fallback style từ {fallback}")
+                return
+            except Exception as e:
+                print(f"[ERROR] apply_qss: Lỗi khi đọc fallback CSS: {e}")
         logging.warning(f"CSS file not found: {filename}")
     except Exception as e:
         print(f"[ERROR] apply_qss: Lỗi khi đọc hoặc áp dụng CSS: {e}")
         logging.error(f"Error applying CSS: {e}")
+    
+    # Apply minimal inline styles as last resort
+    minimal_style = """
+    QMainWindow { background-color: #f8fafc; }
+    QPushButton { 
+        background: #3b82f6; 
+        color: white; 
+        border: none; 
+        border-radius: 6px; 
+        padding: 8px 16px; 
+        font-weight: 500;
+    }
+    QPushButton:hover { background: #2563eb; }
+    QGroupBox { 
+        background: white; 
+        border: 1px solid #e2e8f0; 
+        border-radius: 8px; 
+        margin-top: 8px; 
+        padding-top: 12px; 
+    }
+    QTableWidget { 
+        background: white; 
+        border: 1px solid #e2e8f0; 
+        border-radius: 8px; 
+        gridline-color: #f1f5f9; 
+    }
+    """
+    app.setStyleSheet(minimal_style)
+    print("[DEBUG] apply_qss: Đã áp dụng minimal fallback style")
 
 if __name__ == "__main__":
     print("[DEBUG] main: Bắt đầu thực thi __main__.")
@@ -316,8 +429,8 @@ if __name__ == "__main__":
         app.setStyle(QStyleFactory.create("Fusion"))
         print("[DEBUG] main: Đã tạo QApplication.")
         
-        # Áp dụng CSS
-        apply_qss(app)
+        # Áp dụng CSS - sử dụng style cũ để tránh lỗi
+        apply_qss(app, use_modern=False)
         print("[DEBUG] main: Đã gọi apply_qss.")
 
         main_window = MainWindow()
@@ -326,11 +439,12 @@ if __name__ == "__main__":
         print("[DEBUG] main: Đã gọi main_window.show().")
         
         # Add periodic cleanup
-        cleanup_timer = QTimer()
+        # Add periodic cleanup timer
+        cleanup_timer: QTimer = QTimer()
         cleanup_timer.timeout.connect(lambda: None)  # Placeholder for any periodic tasks
         cleanup_timer.start(60000)  # Every minute
         
-        exit_code = app.exec()
+        exit_code: int = app.exec()
         print("[DEBUG] main: Ứng dụng đã thoát với mã:", exit_code)
         sys.exit(exit_code)
         

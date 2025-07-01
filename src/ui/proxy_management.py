@@ -183,7 +183,7 @@ class ProxyManagementTab(QWidget):
         table_layout.setContentsMargins(12, 24, 12, 12)
         self.proxy_table = QTableWidget()
         self.proxy_table.setColumnCount(7)
-        self.proxy_table.setHorizontalHeaderLabels(["STT", "Proxy", "Loại", "Trạng thái", "Tốc độ", "Ghi chú", "Đã gán cho tài khoản"])
+        self.proxy_table.setHorizontalHeaderLabels(["STT", "Địa chỉ Proxy", "Loại Proxy", "Trạng thái hoạt động", "Tốc độ phản hồi", "Thông tin test", "Tài khoản sử dụng"])
         header = self.proxy_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         header.resizeSection(0, 36)
@@ -198,6 +198,8 @@ class ProxyManagementTab(QWidget):
         self.proxy_table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.proxy_table.verticalHeader().setDefaultSectionSize(32)
         self.proxy_table.horizontalHeader().setFixedHeight(30)
+        # 🔒 LOCK TABLE - Chỉ xem, không cho phép chỉnh sửa
+        self.proxy_table.setEditTriggers(QTableWidget.NoEditTriggers)
         table_layout.addWidget(self.proxy_table)
         table_box.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         # Thêm vào layout chính với stretch mới

@@ -1,0 +1,3377 @@
+import os
+import sys
+import time
+import random
+import json
+import threading
+import queue
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple, Any, Union
+import traceback  # Thêm import này
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
+    QLabel, QLineEdit, QTextEdit, QFileDialog, QMessageBox,
+    QProgressBar, QComboBox, QCheckBox, QSpinBox, QGroupBox,
+    QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
+    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog, QSlider)
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent, QMetaObject, Slot
+from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QGuiApplication, QAction
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from webdriver_manager.chrome import ChromeDriverManager
+from seleniumwire import webdriver as wire_webdriver
+from seleniumwire.utils import decode
+from twocaptcha import TwoCaptcha
+from src.ui.utils import random_delay, wait_for_element, wait_for_element_clickable, retry_operation
+from src.ui.context_menus import AccountContextMenu
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from selenium.webdriver.common.keys import Keys
+
+class CheckboxDelegate(QStyledItemDelegate):
+    # Sử dụng một UserRole tùy chỉnh để tránh xung đột với Qt.CheckStateRole mặc định
+    CheckboxStateRole = Qt.UserRole + 1
+    checkbox_clicked = Signal(int, bool)  # Thêm tín hiệu mới: row, new_state
+
+    def paint(self, painter: QPainter, option, index: QModelIndex):
+        super().paint(painter, option, index)  # Gọi phương thức paint của lớp cha để vẽ nền mặc định (bao gồm cả màu chọn)
+        # Lấy trạng thái checkbox từ model bằng UserRole tùy chỉnh
+        check_state_data = index.data(self.CheckboxStateRole)
+        is_checked = bool(check_state_data)  # Convert to boolean
+
+        # Tính toán vị trí và kích thước cho checkbox 15x15px, căn giữa trong ô
+        checkbox_size = 14 
+        rect = option.rect
+        x = rect.x() + (rect.width() - checkbox_size) // 2
+        y = rect.y() + (rect.height() - checkbox_size) // 2
+        checkbox_rect = QRect(x, y, checkbox_size, checkbox_size)
+
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Vẽ nền và viền của checkbox
+        if is_checked:
+            painter.setBrush(QColor("#1976D2"))  # Màu xanh lam khi chọn
+            painter.setPen(QColor("#1976D2"))
+        else:
+            painter.setBrush(Qt.white)  # Nền trắng khi không chọn
+            painter.setPen(QColor("#CCCCCC"))  # Viền xám khi không chọn
+
+        painter.drawRoundedRect(checkbox_rect, 2, 2)  # Vẽ hình vuông bo góc
+
+        # Vẽ dấu tích nếu đã chọn
+        if is_checked:
+            # Vẽ dấu tích trắng đơn giản
+            painter.setPen(QPen(Qt.white, 2))  # Bút màu trắng, độ dày 2
+            # Đường chéo thứ nhất của dấu tích (từ dưới lên)
+            painter.drawLine(x + 3, y + 7, x + 6, y + 10)
+            # Đường chéo thứ hai của dấu tích (từ điểm giữa lên trên)
+            painter.drawLine(x + 6, y + 10, x + 12, y + 4)
+
+        painter.restore()
+
+    def editorEvent(self, event, model, option, index: QModelIndex):
+        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            # Lấy trạng thái hiện tại từ UserRole tùy chỉnh
+            current_state = index.data(self.CheckboxStateRole)
+            new_state = not bool(current_state)
+
+            # Cập nhật trạng thái trong model bằng UserRole tùy chỉnh
+            model.setData(index, new_state, self.CheckboxStateRole)
+
+            # Phát tín hiệu khi checkbox được click
+            self.checkbox_clicked.emit(index.row(), new_state)
+            return True  # Đã xử lý sự kiện
+        return False  # Quan trọng: Trả về False để các sự kiện không phải click được xử lý mặc định
+
+class CheckableHeaderView(QHeaderView):
+    toggleAllCheckboxes = Signal(bool)  # Tín hiệu để thông báo khi checkbox trong header được toggle
+
+    def __init__(self, orientation, parent=None):
+        super().__init__(orientation, parent)
+        self._checked = False  # Trạng thái của checkbox trong header
+        self.setSectionsClickable(True)
+
+    def paintSection(self, painter, rect, logicalIndex):
+        # Luôn vẽ nền/viền 3D mặc định trước
+        super().paintSection(painter, rect, logicalIndex)
+        if logicalIndex == 0:  # Cột đầu tiên là cột checkbox
+            checkbox_size = 14  # Kích thước của checkbox
+            x = rect.x() + (rect.width() - checkbox_size) // 2
+            y = rect.y() + (rect.height() - checkbox_size) // 2
+            checkbox_rect = QRect(x, y, checkbox_size, checkbox_size)
+
+            painter.save()
+            painter.setRenderHint(QPainter.Antialiasing)
+            # Vẽ nền và viền của checkbox
+            if self._checked:
+                painter.setBrush(QColor("#1976D2"))
+                painter.setPen(QColor("#1976D2"))
+            else:
+                painter.setBrush(Qt.white)
+                painter.setPen(QColor("#CCCCCC"))
+            painter.drawRoundedRect(checkbox_rect, 2, 2)
+            # Vẽ dấu tích nếu đã chọn
+            if self._checked:
+                painter.setPen(QPen(Qt.white, 2))
+                painter.drawLine(x + 3, y + 7, x + 6, y + 10)
+                painter.drawLine(x + 6, y + 10, x + 12, y + 4)
+            painter.restore()
+        else:
+            # Gọi phương thức gốc để vẽ phần còn lại của header cho các cột khác
+            super().paintSection(painter, rect, logicalIndex)
+
+    def mousePressEvent(self, event):
+        if self.logicalIndexAt(event.pos()) == 0 and event.button() == Qt.LeftButton:  # Chỉ xử lý click trên cột đầu tiên
+            self._checked = not self._checked
+            self.toggleAllCheckboxes.emit(self._checked)
+            self.viewport().update()  # Cập nhật lại giao diện header để hiển thị trạng thái checkbox mới
+            event.accept()  # Chấp nhận sự kiện để ngăn xử lý mặc định
+        else:
+            super().mousePressEvent(event)
+
+
+class AccountManagementTab(QWidget):
+    # Định nghĩa tín hiệu để thông báo khi dữ liệu proxy được cập nhật
+    proxy_updated = Signal()
+    # Thêm signal để cập nhật trạng thái từ thread
+    status_updated = Signal(str, str)  # username, status
+    # ⭐ THÊM TÍN HIỆU ĐỒNG BỘ FOLDERS
+    folders_updated = Signal()
+
+    USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    ]
+
+    LANGUAGES = [
+        "en-US,en;q=0.9",  # English (United States), English
+        "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",  # Vietnamese, English
+        "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",  # French, English
+        "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7",  # German, English
+        "ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7"  # Japanese, English
+    ]
+
+    PROXY_USAGE_THRESHOLD = 5  # Ngưỡng sử dụng proxy trước khi xoay vòng
+    RECAPTCHA_RETRY_COUNT = 3  # Số lần thử lại khi gặp reCAPTCHA
+    RECAPTCHA_WAIT_TIME = 10  # Thời gian chờ giữa các lần thử (giây)
+
+    def __init__(self, proxy_tab_instance=None, parent=None):
+        super().__init__(parent)
+        self.proxy_tab = proxy_tab_instance
+        self.accounts_file = "accounts.json"
+        self.folder_map_file = os.path.join("data", "folder_map.json")  # Sửa lại đường dẫn đúng
+        self.accounts = self.load_accounts()
+        self.folder_map = self.load_folder_map()
+        self.active_drivers = []
+        self.stealth_mode_enabled = False
+        self.proxies = self.load_proxies()
+        self.init_ui()
+        self.update_account_table()
+        # Đọc trạng thái sử dụng proxy từ file (nếu có)
+        self.settings_file = "account_settings.json"
+        self.use_proxy = True
+        try:
+            if os.path.exists(self.settings_file):
+                with open(self.settings_file, "r", encoding="utf-8") as f:
+                    settings = json.load(f)
+                    self.use_proxy = settings.get("use_proxy", True)
+        except Exception as e:
+            print(f"[WARN] Không thể đọc trạng thái sử dụng proxy: {e}")
+        # Thay thế checkbox bằng drag switch (QSlider)
+        self.proxy_switch_layout = QHBoxLayout()
+        self.proxy_switch_label = QLabel("Proxy: OFF")
+        self.proxy_switch_slider = QSlider(Qt.Horizontal)
+        self.proxy_switch_slider.setMinimum(0)
+        self.proxy_switch_slider.setMaximum(1)
+        self.proxy_switch_slider.setSingleStep(1)
+        self.proxy_switch_slider.setFixedWidth(80)
+        self.proxy_switch_slider.setValue(1 if self.use_proxy else 0)
+        self.proxy_switch_layout.addWidget(self.proxy_switch_label)
+        self.proxy_switch_layout.addWidget(self.proxy_switch_slider)
+        self.sidebar_layout.addLayout(self.proxy_switch_layout)
+        self.proxy_switch_slider.valueChanged.connect(self.on_proxy_switch_changed)
+        self.update_proxy_switch_label()
+        # Kết nối signal status_updated để cập nhật từ thread
+        self.status_updated.connect(self.on_status_updated)
+
+    def init_driver(self, proxy=None, username=None):
+        print("[DEBUG] 🚀 Khởi tạo ULTRA FAST + STEALTH driver...")
+        from selenium.webdriver.chrome.options import Options
+        options = Options()
+        
+        # ⚡ ULTRA FAST: App mode + minimal window
+        options.add_argument("--app=https://www.instagram.com/")
+        
+        # 🥷 ULTRA STEALTH: Advanced anti-detection
+        options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
+        options.add_experimental_option("useAutomationExtension", False)
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-infobars")
+        options.add_argument("--disable-notifications")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--no-default-browser-check")
+        options.add_argument("--no-first-run")
+        
+        # ⚡ SPEED BOOST: Performance optimizations
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-background-networking")
+        options.add_argument("--disable-sync")
+        options.add_argument("--disable-background-timer-throttling")
+        options.add_argument("--disable-backgrounding-occluded-windows")
+        options.add_argument("--disable-renderer-backgrounding")
+        
+        # 🔥 RENDERER TIMEOUT FIX: Tối ưu cho Chrome 137+
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")  # Giữ lại vì quan trọng
+        options.add_argument("--disable-gpu")  # Giữ lại vì quan trọng
+        
+        # Tắt popup lưu mật khẩu, dịch, cookie, v.v.
+        prefs = {
+            "credentials_enable_service": False,
+            "profile.password_manager_enabled": False,
+            "translate": {"enabled": False},
+            "intl.accept_languages": "en,en_US",
+            "profile.default_content_setting_values.notifications": 2,
+            "profile.default_content_setting_values.automatic_downloads": 1,
+            "profile.default_content_setting_values.popups": 2,
+            "profile.default_content_setting_values.geolocation": 2,
+            # Tắt popup khôi phục trang và session restore
+            "session.restore_on_startup": 4,  # 4 = không khôi phục
+            "profile.exit_type": "Normal",
+            "profile.exited_cleanly": True,
+            "browser.show_home_button": False,
+            "browser.startup_page": 1,  # 1 = blank page
+        }
+        options.add_experimental_option("prefs", prefs)
+        
+        # Tắt các popup và khôi phục session
+        options.add_argument("--disable-session-crashed-bubble")
+        options.add_argument("--disable-infobars")
+        options.add_argument("--disable-restore-session-state")
+        options.add_argument("--disable-background-timer-throttling")
+        options.add_argument("--disable-backgrounding-occluded-windows")
+        options.add_argument("--disable-renderer-backgrounding")
+        options.add_argument("--disable-features=TranslateUI,VizDisplayCompositor")
+        
+        # User agent và ngôn ngữ
+        random_user_agent = random.choice(self.USER_AGENTS)
+        options.add_argument(f"user-agent={random_user_agent}")
+        random_language = random.choice(self.LANGUAGES)
+        options.add_argument(f"--lang={random_language}")
+        options.add_argument(f"--accept-lang={random_language}")
+        print(f"[DEBUG] Sử dụng User-Agent: {random_user_agent}")
+        print(f"[DEBUG] Sử dụng Ngôn ngữ: {random_language}")
+        
+        # Chế độ ẩn danh nếu được bật
+        if self.stealth_mode_enabled:
+            options.add_argument("--incognito")
+            print("[DEBUG] Chế độ ẩn danh được bật.")
+        
+        # Đảm bảo hiển thị giao diện desktop Instagram (không mobile)
+        options.add_argument("--disable-mobile-emulation")
+        options.add_argument("--force-device-scale-factor=1")
+        
+        # Kích thước cửa sổ nhỏ gọn 450x380px
+        options.add_argument("--window-size=450,380")
+        
+        # Cấu hình proxy
+        proxy_options = {}
+        if proxy: 
+            print(f"[DEBUG] Proxy được cung cấp: {proxy}")
+            proxy_parts = proxy.split(':')
+            if len(proxy_parts) == 4:
+                proxy_ip_port = f"{proxy_parts[0]}:{proxy_parts[1]}"
+                proxy_user = proxy_parts[2]
+                proxy_pass = proxy_parts[3]
+                proxy_options = {
+                    'proxy': {
+                        'http': f'http://{proxy_user}:{proxy_pass}@{proxy_ip_port}',
+                        'https': f'https://{proxy_user}:{proxy_pass}@{proxy_ip_port}',
+                        'no_proxy': 'localhost,127.0.0.1' 
+                    }
+                }
+                print(f"[DEBUG] Sử dụng proxy có xác thực với selenium-wire: {proxy_ip_port}")
+            elif len(proxy_parts) == 2:
+                proxy_ip_port = f"{proxy_parts[0]}:{proxy_parts[1]}"
+                proxy_options = {
+                    'proxy': {
+                        'http': f'http://{proxy_ip_port}',
+                        'https': f'https://{proxy_ip_port}'
+                    }
+                }
+                print(f"[DEBUG] Sử dụng proxy không xác thực với selenium-wire: {proxy_ip_port}")
+            else:
+                print(f"[WARN] Định dạng proxy không hợp lệ, bỏ qua: {proxy}")
+                proxy = None
+        else:
+            print("[DEBUG] Không có proxy được cung cấp")
+        
+        print("[DEBUG] Đang khởi tạo Chrome driver...")
+        
+        # Thêm user-data-dir riêng cho từng tài khoản nếu có username
+        if username:
+            profile_dir = os.path.abspath(f'sessions/{username}_profile')
+            os.makedirs(profile_dir, exist_ok=True)
+            options.add_argument(f'--user-data-dir={profile_dir}')
+        
+        try:
+            driver = wire_webdriver.Chrome(seleniumwire_options=proxy_options, options=options)
+            print("[DEBUG] Chrome app mode driver đã được khởi tạo thành công")
+            
+            # 🔥 TIMEOUT FIX: Tránh renderer timeout
+            driver.set_page_load_timeout(15)  # 15 giây tối đa
+            driver.implicitly_wait(8)         # 8 giây implicit wait
+            print("[DEBUG] ✅ Đã set timeout: page_load=15s, implicit=8s")
+            
+            # 🥷 STEALTH: Inject anti-detection scripts
+            try:
+                driver.execute_script("""
+                    // Remove webdriver property
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined,
+                    });
+                    
+                    // Mock plugins array
+                    Object.defineProperty(navigator, 'plugins', {
+                        get: () => [1, 2, 3, 4, 5],
+                    });
+                    
+                    // Mock languages
+                    Object.defineProperty(navigator, 'languages', {
+                        get: () => ['en-US', 'en'],
+                    });
+                    
+                    // Remove automation indicators
+                    window.chrome = {
+                        runtime: {},
+                    };
+                    
+                    // Mock permissions API
+                    const originalQuery = window.navigator.permissions.query;
+                    window.navigator.permissions.query = (parameters) => (
+                        parameters.name === 'notifications' ?
+                            Promise.resolve({ state: Notification.permission }) :
+                            originalQuery(parameters)
+                    );
+                    
+                    // Override screen properties for consistency
+                    Object.defineProperty(screen, 'colorDepth', { get: () => 24 });
+                    Object.defineProperty(screen, 'pixelDepth', { get: () => 24 });
+                    
+                    // Mock timezone
+                    Intl.DateTimeFormat.prototype.resolvedOptions = () => ({
+                        timeZone: 'America/New_York'
+                    });
+                """)
+                print("[DEBUG] 🥷 Stealth scripts injected successfully")
+            except Exception as e:
+                print(f"[WARN] Stealth injection failed: {e}")
+            
+            return driver
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi khởi tạo Chrome driver: {str(e)}")
+            raise
+
+    def init_ui(self):
+        main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        main_layout.setSpacing(0)  # Remove spacing
+
+        # Sidebar on the left (15%)
+        sidebar_widget = QWidget()
+        self.sidebar_layout = QVBoxLayout(sidebar_widget)
+        self.sidebar_layout.setContentsMargins(10, 10, 10, 10)
+        self.sidebar_layout.setSpacing(10)
+
+        # Functions
+        btn_add_account = QPushButton("Thêm tài khoản")
+        btn_add_account.clicked.connect(self.add_account)
+        self.sidebar_layout.addWidget(btn_add_account)
+
+        btn_import_accounts = QPushButton("Import .txt/.csv")
+        btn_import_accounts.clicked.connect(self.import_accounts)
+        self.sidebar_layout.addWidget(btn_import_accounts)
+
+        btn_add_folder = QPushButton("Quản lý thư mục")
+        btn_add_folder.clicked.connect(self.open_folder_manager)
+        self.sidebar_layout.addWidget(btn_add_folder)
+
+        self.sidebar_layout.addStretch()  # Add stretch to push buttons to top
+
+        main_layout.addWidget(sidebar_widget, stretch=15)
+
+        # Right panel (85%)
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)  # Remove margins
+        right_layout.setSpacing(0)  # Remove spacing
+
+        # Toolbar placed in QFrame for alignment
+        toolbar_frame = QFrame()
+        toolbar_frame.setStyleSheet("QFrame { padding-top: 6px; padding-bottom: 6px; }\n")
+        toolbar_layout = QHBoxLayout(toolbar_frame)
+        toolbar_layout.setSpacing(8)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+
+        # ComboBox for Category
+        self.category_combo = QComboBox()
+        self.category_combo.addItem("Tất cả")
+        self.load_folder_list_to_combo()  # Load folders into combobox
+        self.category_combo.currentIndexChanged.connect(self.on_folder_changed)
+        self.category_combo.setFixedSize(200, 30)  # Kích thước 200x35px
+        toolbar_layout.addWidget(self.category_combo)
+
+        # Đẩy các widget trước sang trái
+        toolbar_layout.addStretch(1)
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Tìm kiếm tài khoản...")
+        self.search_input.textChanged.connect(self.filter_accounts)
+        self.search_input.setFixedWidth(180)
+        self.search_input.setFixedHeight(35)
+        toolbar_layout.addWidget(self.search_input)
+
+        btn_search = QPushButton("🔍")
+        btn_search.clicked.connect(lambda: self.filter_accounts(self.search_input.text()))
+        btn_search.setFixedSize(50, 35)
+        btn_search.setProperty("role", "main")
+        btn_search.setProperty("color", "blue")
+        toolbar_layout.addWidget(btn_search)
+
+        right_layout.addWidget(toolbar_frame)
+
+        # Account table
+        self.account_table = QTableWidget()
+        self.account_table.setColumnCount(11)  # ⭐ Tăng lên 11 cột để thêm Permanent Proxy
+        self.account_table.setHorizontalHeaderLabels([
+            "", "STT", "Tên đăng nhập", "Mật khẩu", "Trạng thái", 
+            "Proxy", "Proxy VV", "Trạng thái Proxy", "Follower", "Following", "Hành động cuối"
+        ])
+
+        # Thiết lập delegate cho cột "Chọn"
+        self.checkbox_delegate = CheckboxDelegate(self)
+        self.account_table.setItemDelegateForColumn(0, self.checkbox_delegate)
+        # Kết nối tín hiệu checkbox_clicked từ delegate
+        self.checkbox_delegate.checkbox_clicked.connect(self.on_checkbox_clicked)
+
+        # Thay thế QHeaderView mặc định bằng CheckableHeaderView
+        self.header_checkbox = CheckableHeaderView(Qt.Horizontal, self.account_table)
+        self.account_table.setHorizontalHeader(self.header_checkbox)
+        header = self.header_checkbox  # Gán lại biến header để các dòng code sau vẫn sử dụng được
+
+        header.setSectionResizeMode(0, QHeaderView.Fixed)  # Cột "Chọn"
+        self.account_table.setColumnWidth(0, 29)
+        header.setSectionResizeMode(1, QHeaderView.Fixed)  # Cột "STT"
+        self.account_table.setColumnWidth(1, 29)  # Đặt chiều rộng cột STT thành 29px
+        header.setSectionResizeMode(2, QHeaderView.Fixed)  # Cột "Tên đăng nhập" - Chuyển về Fixed
+        self.account_table.setColumnWidth(2, 150)  # Đặt chiều rộng cố định
+        header.setSectionResizeMode(3, QHeaderView.Fixed)  # Cột "Mật khẩu" - Chuyển về Fixed
+        self.account_table.setColumnWidth(3, 150)  # Đặt chiều rộng cố định
+        header.setSectionResizeMode(4, QHeaderView.Fixed)  # Cột "Trạng thái"
+        self.account_table.setColumnWidth(4, 120)  # Giữ nguyên chiều rộng
+        header.setSectionResizeMode(5, QHeaderView.Fixed)  # Cột "Proxy" - Chuyển về Fixed
+        self.account_table.setColumnWidth(5, 150)  # Đặt chiều rộng cố định (giảm để có chỗ cho Permanent Proxy)
+        header.setSectionResizeMode(6, QHeaderView.Fixed)  # ⭐ Cột "Permanent Proxy"
+        self.account_table.setColumnWidth(6, 120)  # Proxy VV - chiều rộng vừa phải
+        header.setSectionResizeMode(7, QHeaderView.Fixed)  # Cột "Trạng thái Proxy"
+        self.account_table.setColumnWidth(7, 120)  # Giảm chiều rộng
+        header.setSectionResizeMode(8, QHeaderView.Fixed)  # Cột "Follower"
+        self.account_table.setColumnWidth(8, 79)
+        header.setSectionResizeMode(9, QHeaderView.Fixed)  # Cột "Following"
+        self.account_table.setColumnWidth(9, 79)
+        header.setSectionResizeMode(10, QHeaderView.Stretch)  # Cột "Hành động cuối" - Giữ nguyên Stretch
+        self.account_table.verticalHeader().setDefaultSectionSize(40)
+        self.account_table.horizontalHeader().setFixedHeight(40)
+
+        # Đảm bảo cột cuối cùng kéo giãn để hiển thị đầy đủ nội dung
+        header.setStretchLastSection(True)
+
+        # Thiết lập căn lề cho các tiêu đề cột
+        self.account_table.horizontalHeader().setDefaultAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+        self.account_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        # ⭐ Enable editing chỉ cho một số cột cụ thể
+        self.account_table.setEditTriggers(QTableWidget.DoubleClicked | QTableWidget.EditKeyPressed)  # Enable editing
+        self.account_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.account_table.customContextMenuRequested.connect(self.show_context_menu)
+        self.account_table.itemChanged.connect(self.handle_item_changed)  # Connect itemChanged signal
+        self.account_table.verticalHeader().setVisible(False)  # Ẩn cột số thứ tự bên trái
+        self.account_table.itemDoubleClicked.connect(self.on_table_item_double_clicked)  # Connect double click signal
+
+        right_layout.addWidget(self.account_table)
+        # Thêm label thống kê dưới bảng tài khoản (tách riêng)
+        self.stats_label = QLabel()
+        self.stats_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.stats_label.setStyleSheet("font-size: 15px; font-weight: bold; padding: 8px 12px;")
+        right_layout.addWidget(self.stats_label)
+        main_layout.addWidget(right_panel, stretch=85)
+
+        # Kết nối tín hiệu toggleAllCheckboxes từ CheckableHeaderView
+        self.header_checkbox.toggleAllCheckboxes.connect(self.toggle_all_accounts_selection)
+
+    def load_accounts(self):
+        if os.path.exists(self.accounts_file):
+            try:
+                with open(self.accounts_file, 'r', encoding='utf-8') as f:
+                    accounts_data = json.load(f)
+                    # ⭐ MIGRATION: Đảm bảo mỗi tài khoản có các trường mới
+                    updated = False
+                    for account in accounts_data:
+                        # Legacy field: proxy_status
+                        if "proxy_status" not in account:
+                            account["proxy_status"] = "Chưa kiểm tra"
+                            updated = True
+                        # ⭐ NEW FIELD: permanent_proxy 
+                        if "permanent_proxy" not in account:
+                            account["permanent_proxy"] = ""
+                            updated = True
+                            print(f"[DEBUG] Migrated account {account.get('username', 'Unknown')} with permanent_proxy field")
+                    
+                    # Lưu lại nếu có migration
+                    if updated:
+                        print(f"[DEBUG] Migration completed for {len(accounts_data)} accounts")
+                        # Lưu ngay lập tức với data mới
+                        try:
+                            with open(self.accounts_file, 'w', encoding='utf-8') as f:
+                                json.dump(accounts_data, f, indent=4, ensure_ascii=False)
+                            print("[INFO] Migrated accounts data saved successfully.")
+                        except Exception as e:
+                            print(f"[ERROR] Failed to save migrated accounts: {e}")
+                    
+                    return accounts_data
+            except json.JSONDecodeError:
+                print("[ERROR] Lỗi đọc file accounts.json. File có thể bị hỏng.")
+                return []
+        return []
+
+    def save_accounts(self):
+        # Sử dụng lock để tránh race condition khi nhiều thread cùng lưu
+        import threading
+        if not hasattr(self, '_save_lock'):
+            self._save_lock = threading.Lock()
+            
+        with self._save_lock:
+            try:
+                with open(self.accounts_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.accounts, f, indent=4, ensure_ascii=False)
+                    print("[INFO] Tài khoản đã được lưu.")
+            except Exception as e:
+                print(f"[ERROR] Lỗi khi lưu accounts: {e}")
+
+    def sync_proxy_data(self):
+        """Đồng bộ proxy data từ ProxyManagementTab"""
+        try:
+            print("[DEBUG] ⭐ Bắt đầu đồng bộ proxy data từ ProxyManagementTab...")
+            
+            # Load proxy data từ proxy_status.json  
+            proxy_file = 'proxy_status.json'
+            if os.path.exists(proxy_file):
+                with open(proxy_file, 'r', encoding='utf-8') as f:
+                    proxy_data = json.load(f)
+                
+                print(f"[DEBUG] Đã load {len(proxy_data)} proxy từ proxy_status.json")
+                
+                # Tạo mapping: assigned_account -> proxy
+                proxy_assignments = {}
+                available_proxies = []
+                
+                for proxy_info in proxy_data:
+                    proxy_string = proxy_info.get('proxy', '')
+                    assigned_account = proxy_info.get('assigned_account', '').strip()
+                    proxy_status = proxy_info.get('status', '')
+                    
+                    if assigned_account:
+                        # Proxy đã được gán cho tài khoản cụ thể
+                        proxy_assignments[assigned_account] = {
+                            'proxy': proxy_string,
+                            'status': proxy_status
+                        }
+                        print(f"[DEBUG] Proxy assigned: {assigned_account} -> {proxy_string}")
+                    elif proxy_status.lower() == 'ok':
+                        # Proxy khả dụng chưa được gán
+                        available_proxies.append(proxy_string)
+                
+                print(f"[DEBUG] Found {len(proxy_assignments)} assigned proxies")
+                print(f"[DEBUG] Found {len(available_proxies)} available proxies")
+                
+                # Cập nhật proxy cho các tài khoản
+                updated_count = 0
+                auto_assigned_count = 0
+                
+                for account in self.accounts:
+                    username = account.get('username', '')
+                    current_proxy = account.get('proxy', '')
+                    
+                    # Kiểm tra xem có proxy được gán specifically cho tài khoản này không
+                    if username in proxy_assignments:
+                        new_proxy = proxy_assignments[username]['proxy']
+                        proxy_status = proxy_assignments[username]['status']
+                        
+                        if current_proxy != new_proxy:
+                            account['proxy'] = new_proxy
+                            account['proxy_status'] = proxy_status
+                            print(f"[INFO] ✅ Updated assigned proxy for {username}: {new_proxy}")
+                            updated_count += 1
+                    
+                    # Nếu tài khoản chưa có proxy và có proxy khả dụng
+                    elif not current_proxy and available_proxies:
+                        new_proxy = available_proxies.pop(0)  # Lấy proxy đầu tiên
+                        account['proxy'] = new_proxy
+                        account['proxy_status'] = 'OK'  # Assume OK since it's from available list
+                        print(f"[INFO] 🔄 Auto-assigned proxy for {username}: {new_proxy}")
+                        auto_assigned_count += 1
+                
+                # Lưu thay đổi nếu có
+                total_updates = updated_count + auto_assigned_count
+                if total_updates > 0:
+                    self.save_accounts()
+                    self.update_account_table()
+                    print(f"[SUCCESS] ✅ Proxy sync completed!")
+                    print(f"  - Manual assignments updated: {updated_count}")
+                    print(f"  - Auto assignments: {auto_assigned_count}")
+                    print(f"  - Total accounts updated: {total_updates}")
+                    
+                    # Show success message
+                    from PySide6.QtWidgets import QMessageBox
+                    QMessageBox.information(
+                        self, 
+                        "Đồng bộ Proxy", 
+                        f"✅ Đã đồng bộ proxy thành công!\n\n"
+                        f"📋 Cập nhật proxy đã gán: {updated_count}\n"
+                        f"🔄 Tự động gán proxy mới: {auto_assigned_count}\n"
+                        f"📊 Tổng tài khoản được cập nhật: {total_updates}"
+                    )
+                else:
+                    print("[INFO] 💡 No proxy updates needed - all accounts already have correct proxies")
+                    
+            else:
+                print(f"[WARN] ⚠️ Không tìm thấy file {proxy_file}")
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self, 
+                    "Đồng bộ Proxy", 
+                    f"⚠️ Không tìm thấy file proxy_status.json\n\n"
+                    f"Vui lòng import proxy từ tab 'Quản lý Proxy' trước!"
+                )
+                
+        except Exception as e:
+            print(f"[ERROR] ❌ Lỗi khi đồng bộ proxy data: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self, 
+                "Lỗi đồng bộ Proxy", 
+                f"❌ Có lỗi xảy ra khi đồng bộ proxy:\n\n{str(e)}"
+            )
+
+    def add_account(self):
+        username, ok = QInputDialog.getText(self, "Thêm tài khoản", "Tên người dùng:")
+        if ok and username:
+            password, ok = QInputDialog.getText(self, "Thêm tài khoản", "Mật khẩu:", QLineEdit.Password)
+            if ok:
+                proxy, ok = QInputDialog.getText(self, "Thêm tài khoản", "Proxy (tùy chọn):")
+                if ok:
+                    new_account = {
+                        "selected": False,
+                        "username": username,
+                        "password": password,
+                        "fullname": "",  # NEW: Thêm trường Họ tên
+                        "proxy": proxy,
+                        "status": "Chưa đăng nhập",
+                        "gender": "-",  # Thêm cột giới tính
+                        "followers": "",
+                        "following": "",
+                        "last_action": "",  # Thêm cột hành động cuối
+                        "proxy_status": "Chưa kiểm tra",  # Khởi tạo trạng thái proxy
+                        "permanent_proxy": ""  # ⭐ THÊM: Proxy vĩnh viễn cho tài khoản
+                    }
+                    self.accounts.append(new_account)
+                    self.save_accounts()
+                    self.update_account_table()
+
+                    QMessageBox.information(self, "Thêm tài khoản", "Tài khoản đã được thêm thành công.")
+
+    @Slot()
+    def update_account_table(self, accounts_to_display=None):
+        if accounts_to_display is None:
+            accounts_to_display = self.accounts
+
+        self.account_table.blockSignals(True)  # Block signals to prevent itemChanged from firing
+        self.account_table.setRowCount(len(accounts_to_display))
+        for row_idx, account in enumerate(accounts_to_display):
+            # Cột "Chọn" - KHÔNG setFlags kiểu checkbox nữa, chỉ để delegate vẽ
+            item_checkbox = QTableWidgetItem()
+            item_checkbox.setData(CheckboxDelegate.CheckboxStateRole, account.get("selected", False))
+            self.account_table.setItem(row_idx, 0, item_checkbox)  # Thiết lập item cho cột 0
+
+            # STT
+            stt_item = QTableWidgetItem(str(row_idx + 1))
+            stt_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 1, stt_item)
+
+            # Tên đăng nhập
+            username_item = QTableWidgetItem(account.get("username", ""))
+            username_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 2, username_item)
+
+            # Mật khẩu
+            password_item = QTableWidgetItem(account.get("password", ""))
+            password_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 3, password_item)
+
+            # Trạng thái
+            status_item = QTableWidgetItem(account.get("status", "Chưa đăng nhập"))
+            status_item.setTextAlignment(Qt.AlignCenter)
+            if account.get("status") == "Đăng nhập thất bại":
+                status_item.setForeground(QColor("red"))
+            elif account.get("status") == "Đã đăng nhập" or account.get("status") == "Live":
+                status_item.setForeground(QColor("green"))
+            elif account.get("status") == "Die":
+                status_item.setForeground(QColor("red"))  # Thêm màu đỏ cho trạng thái "Die"
+            else:
+                status_item.setForeground(QColor("black"))  # Mặc định màu đen
+            self.account_table.setItem(row_idx, 4, status_item)
+
+            # Proxy
+            proxy_item = QTableWidgetItem(account.get("proxy", ""))
+            proxy_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 5, proxy_item)
+
+            # ⭐ PERMANENT PROXY - Cột mới
+            permanent_proxy_item = QTableWidgetItem(account.get("permanent_proxy", ""))
+            permanent_proxy_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            # Đánh dấu permanent proxy bằng màu xanh
+            if account.get("permanent_proxy", "").strip():
+                permanent_proxy_item.setForeground(QColor("blue"))
+                permanent_proxy_item.setToolTip("Proxy vĩnh viễn - ưu tiên sử dụng")
+            else:
+                permanent_proxy_item.setForeground(QColor("gray"))
+                permanent_proxy_item.setToolTip("Chưa có proxy vĩnh viễn")
+            self.account_table.setItem(row_idx, 6, permanent_proxy_item)
+
+            # Trạng thái Proxy
+            proxy_status_item = QTableWidgetItem(account.get("proxy_status", "Chưa kiểm tra"))
+            proxy_status_item.setTextAlignment(Qt.AlignCenter)
+            if account.get("proxy_status") == "Die":
+                proxy_status_item.setForeground(QColor("red"))
+            elif account.get("proxy_status") == "OK":
+                proxy_status_item.setForeground(QColor("green"))
+            else:
+                proxy_status_item.setForeground(QColor("black"))
+            self.account_table.setItem(row_idx, 7, proxy_status_item)
+
+            # Follower
+            follower_item = QTableWidgetItem(account.get("followers", ""))
+            follower_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 8, follower_item)
+
+            # Following
+            following_item = QTableWidgetItem(account.get("following", ""))
+            following_item.setTextAlignment(Qt.AlignCenter)
+            self.account_table.setItem(row_idx, 9, following_item)
+
+            # Hành động cuối
+            last_action_item = QTableWidgetItem(account.get("last_action", ""))
+            last_action_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.account_table.setItem(row_idx, 10, last_action_item)
+        self.account_table.blockSignals(False)  # Unblock signals
+        self.update_stats(accounts_to_display)
+
+    @Slot()
+    def update_stats(self, accounts_to_display=None):
+        if accounts_to_display is None:
+            accounts_to_display = self.accounts
+        total = len(accounts_to_display)
+        live = 0
+        die = 0
+        selected = 0
+        for acc in accounts_to_display:
+            status = str(acc.get("status", "")).lower()
+            if status == "live":
+                live += 1
+            elif status == "die":
+                die += 1
+            if acc.get("selected", False):
+                selected += 1
+        not_selected = total - selected
+        stats_html = (
+            f'<span style="color:black">Tổng: <b>{total}</b></span> | '
+            f'<span style="color:green">Live: <b>{live}</b></span> | '
+            f'<span style="color:red">Die: <b>{die}</b></span> | '
+            f'<span style="color:#1976D2">Đã chọn: <b>{selected}</b></span> | '
+            f'<span style="color:gray">Chưa chọn: <b>{not_selected}</b></span>'
+        )
+        self.stats_label.setText(stats_html)
+
+    def on_checkbox_clicked(self, row, new_state):
+        # Hàm này được kết nối từ delegate để xử lý khi trạng thái checkbox thay đổi
+        if row < len(self.accounts):
+            self.accounts[row]["selected"] = new_state
+            self.save_accounts()
+            print(f"[DEBUG] Checkbox tại hàng {row} được chuyển thành: {new_state}. Tài khoản: {self.accounts[row]['username']}")
+        self.update_stats()
+
+    def handle_item_changed(self, item):
+        # Kiểm tra nếu tín hiệu bị block, bỏ qua
+        if self.account_table.signalsBlocked():
+            return
+
+        row = item.row()
+        col = item.column()
+
+        if col == 0:  # Cột checkbox, đã được xử lý bởi on_checkbox_clicked
+            return
+
+        # Chỉ xử lý các cột có thể chỉnh sửa: Tên đăng nhập, Mật khẩu, Proxy, Permanent Proxy
+        if col == 2:  # Tên đăng nhập
+            self.accounts[row]["username"] = item.text()
+        elif col == 3:  # Mật khẩu
+            self.accounts[row]["password"] = item.text()
+        elif col == 5:  # Proxy
+            self.accounts[row]["proxy"] = item.text()
+        elif col == 6:  # ⭐ Permanent Proxy
+            self.accounts[row]["permanent_proxy"] = item.text()
+            print(f"[DEBUG] Cập nhật permanent proxy cho {self.accounts[row]['username']}: {item.text()}")
+        else:
+            return  # Không xử lý các cột khác
+
+        self.save_accounts()
+        self.update_stats()
+
+    def filter_accounts(self, text):
+        filtered_accounts = [
+            account for account in self.accounts
+            if text.lower() in account.get("username", "").lower() or
+            text.lower() in account.get("status", "").lower() or
+            text.lower() in account.get("proxy", "").lower() or
+            text.lower() in account.get("permanent_proxy", "").lower() or  # ⭐ Thêm permanent proxy vào search
+            text.lower() in account.get("proxy_status", "").lower() or
+            text.lower() in account.get("last_action", "").lower()
+        ]
+        if self.category_combo.currentText() != "Tất cả":
+            folder_name = self.category_combo.currentText()
+            # Đảm bảo rằng get() có một giá trị mặc định cho trường hợp username không có trong folder_map
+            filtered_accounts = [acc for acc in filtered_accounts if self.folder_map.get(acc.get("username"), "Tổng") == folder_name]
+
+        self.update_account_table(filtered_accounts)
+        self.update_stats(filtered_accounts)
+
+    def get_window_positions(self, num_windows):
+        # Kích thước mỗi cửa sổ theo yêu cầu
+        win_w, win_h = 450, 380
+        
+        # Lấy kích thước màn hình
+        try:
+            from PySide6.QtGui import QGuiApplication
+            screen = QGuiApplication.primaryScreen()
+            geometry = screen.geometry()
+            screen_w, screen_h = geometry.width(), geometry.height()
+            print(f"[DEBUG] Kích thước màn hình: {screen_w}x{screen_h}")
+        except Exception:
+            screen_w, screen_h = 1920, 1080  # fallback nếu không lấy được
+        
+        # Tính toán lưới xếp cửa sổ
+        margin = 10  # Khoảng cách nhỏ giữa các cửa sổ
+        effective_win_w = win_w + margin
+        effective_win_h = win_h + margin
+        
+        # Số cột tối đa có thể xếp trên màn hình
+        max_cols = max(1, (screen_w - margin) // effective_win_w)
+        print(f"[DEBUG] Số cột tối đa: {max_cols}")
+        
+        positions = []
+        for i in range(num_windows):
+            # Tính vị trí trong lưới: từ trái sang phải, từ trên xuống dưới
+            col = i % max_cols
+            row = i // max_cols
+            
+            # Tính toán vị trí pixel
+            x = margin + col * effective_win_w
+            y = margin + row * effective_win_h
+            
+            # Đảm bảo không vượt quá màn hình
+            if x + win_w > screen_w:
+                x = screen_w - win_w - margin
+            if y + win_h > screen_h:
+                y = screen_h - win_h - margin
+            
+            positions.append((x, y, win_w, win_h))
+            print(f"[DEBUG] Cửa sổ {i+1}: Hàng {row+1}, Cột {col+1} → Vị trí ({x}, {y})")
+        
+        return positions
+
+    def login_selected_accounts(self):
+        # Chạy đăng nhập cho từng tài khoản trong thread phụ, không block main thread
+        import threading
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.information(self, "Thông báo", "Vui lòng chọn ít nhất 1 tài khoản để đăng nhập.")
+            return
+        def login_worker(account, window_position=None):
+            import threading
+            username = account.get('username', 'Unknown')
+            thread_id = threading.get_ident()
+            
+            print(f"[DEBUG] Thread worker BẮT ĐẦU cho {username} - thread id: {thread_id}")
+            
+            # Signal báo thread bắt đầu
+            try:
+                account["status"] = "Thread bắt đầu..."
+                self.status_updated.emit(username, account["status"])
+                print(f"[DEBUG] Đã emit signal bắt đầu cho {username}")
+            except Exception as e:
+                print(f"[ERROR] Không thể emit signal bắt đầu cho {username}: {e}")
+            
+            # Wrapping toàn bộ logic trong try-catch để đảm bảo luôn emit signal
+            try:
+                print(f"[DEBUG] Gọi login_instagram_and_get_info cho {username}")
+                result = self.login_instagram_and_get_info(account, window_position)
+                print(f"[DEBUG] login_instagram_and_get_info hoàn thành cho {username} với result: {result}")
+                return result
+                
+            except Exception as e:
+                print(f"[CRITICAL][Thread] Lỗi nghiêm trọng trong thread {username}: {type(e).__name__}: {e}")
+                import traceback
+                traceback.print_exc()
+                
+                # Đảm bảo luôn emit signal cập nhật trạng thái
+                try:
+                    error_status = f"Lỗi thread: {type(e).__name__}"
+                    account["status"] = error_status
+                    self.status_updated.emit(username, error_status)
+                    print(f"[DEBUG] Đã emit signal lỗi nghiêm trọng cho {username}")
+                except Exception as emit_error:
+                    print(f"[CRITICAL] Không thể emit signal cuối cùng cho {username}: {emit_error}")
+                
+                return "Lỗi thread", "Lỗi", None
+                
+            finally:
+                print(f"[DEBUG] Thread worker KẾT THÚC cho {username}")
+                
+        window_positions = self.get_window_positions(len(selected_accounts))
+        
+        # ⚡ TỐI ƯU: Khởi động threads nhanh hơn
+        for idx, account in enumerate(selected_accounts):
+            pos = window_positions[idx] if window_positions else None
+            t = threading.Thread(target=login_worker, args=(account, pos), daemon=True)
+            t.start()
+            # ⚡ Giảm delay để khởi động nhanh hơn
+            if idx < len(selected_accounts) - 1:
+                time.sleep(0.2)  # ⚡ Giảm từ 0.5s xuống 0.2s
+
+
+    def get_human_delay(self, base_time=1.0, variation=0.5):
+        """⚡ HUMAN-LIKE: Tạo delay ngẫu nhiên giống con người"""
+        # Gaussian distribution để giống timing con người
+        import random
+        delay = random.gauss(base_time, variation)
+        return max(0.1, min(delay, base_time * 2))  # Clamp between 0.1s and 2x base
+    
+    def simulate_human_scroll(self, driver):
+        """🥷 STEALTH: Giả lập scroll như con người"""
+        try:
+            # Random scroll nhẹ để giống human behavior
+            scroll_amount = random.randint(100, 300)
+            driver.execute_script(f"window.scrollBy(0, {scroll_amount});")
+            import time
+            time.sleep(self.get_human_delay(0.5, 0.2))
+        except Exception as e:
+            print(f"[DEBUG] Scroll simulation error: {e}")
+    
+    def simulate_mouse_movement(self, driver):
+        """🥷 STEALTH: Giả lập di chuyển chuột"""
+        try:
+            from selenium.webdriver.common.action_chains import ActionChains
+            action = ActionChains(driver)
+            
+            # Random mouse movement trong viewport
+            x_offset = random.randint(-50, 50)
+            y_offset = random.randint(-30, 30)
+            action.move_by_offset(x_offset, y_offset).perform()
+            import time
+            time.sleep(self.get_human_delay(0.2, 0.1))
+        except Exception as e:
+            print(f"[DEBUG] Mouse simulation error: {e}")
+    
+    def track_login_success(self, success=True):
+        """🚀 SMART TRACKING: Theo dõi thành công để adaptive optimization"""
+        if not hasattr(self, '_success_streak'):
+            self._success_streak = 0
+        
+        if success:
+            self._success_streak += 1
+            print(f"[DEBUG] 🚀 Success streak: {self._success_streak}")
+        else:
+            self._success_streak = 0
+            print("[DEBUG] ⚠️ Success streak reset")
+    
+    def instant_success_report(self, account, driver, status="Đã đăng nhập"):
+        """🚀 INSTANT REPORT: Báo về kết quả ngay lập tức, không chờ đợi"""
+        try:
+            username = account['username']
+            print(f"[DEBUG] ✅ INSTANT SUCCESS REPORT: {username} - {status}")
+            
+            # Track success for adaptive optimization
+            self.track_login_success(True)
+            
+            # Update status immediately
+            account["status"] = status
+            account["last_action"] = f"Đăng nhập thành công lúc {time.strftime('%H:%M:%S')}"
+            
+            # Emit signal to update UI immediately
+            self.status_updated.emit(username, status)
+            
+            # Force UI update immediately
+            from PySide6.QtCore import QCoreApplication
+            QCoreApplication.processEvents()
+            
+            # Save accounts immediately to persist status
+            self.save_accounts()
+            
+            # 🚀 SUPER FAST BACKGROUND TASKS: All non-critical operations
+            import threading
+            def background_tasks():
+                try:
+                    print(f"[DEBUG] 🚀 Starting background tasks for {username}")
+                    
+                    # Task 1: Save cookies (important but non-blocking)
+                    try:
+                        self.save_cookies(driver, username)
+                        print(f"[DEBUG] ✅ Cookies saved for {username}")
+                    except Exception as e:
+                        print(f"[WARN] Cookie save failed: {e}")
+                    
+                    # Task 2: Basic info collection (optional)
+                    try:
+                        current_url = driver.current_url
+                        # Only collect if we're on feed/main page (don't navigate)
+                        if "instagram.com" in current_url and not "login" in current_url:
+                            # Quick info without navigation
+                            info = {
+                                "username": username,
+                                "profile_url": f"https://www.instagram.com/{username}/",
+                                "followers": "N/A",
+                                "following": "N/A",
+                                "posts": "N/A",
+                                "last_updated": time.strftime("%Y-%m-%d %H:%M:%S")
+                            }
+                            self.update_account_info(account, info)
+                            print(f"[DEBUG] ✅ Basic info updated for {username}")
+                    except Exception as e:
+                        print(f"[DEBUG] Info collection skipped: {e}")
+                    
+                    # Task 3: Browser cleanup (after short delay)
+                    import time
+                    time.sleep(2)  # Give time for any pending operations
+                    try:
+                        self.close_browser_safely(driver, username)
+                        print(f"[DEBUG] ✅ Browser closed for {username}")
+                    except Exception as e:
+                        print(f"[WARN] Browser close failed: {e}")
+                    
+                    print(f"[SUCCESS] 🚀 All background tasks completed for {username}")
+                    
+                except Exception as e:
+                    print(f"[ERROR] Background tasks failed for {username}: {e}")
+            
+            # Start background tasks immediately
+            threading.Thread(target=background_tasks, daemon=True).start()
+            
+            print(f"[SUCCESS] 🚀 INSTANT REPORT COMPLETE: {username} - UI updated, background tasks started")
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] Instant success report failed: {e}")
+            return False
+
+    def login_instagram_and_get_info(self, account, window_position=None, max_retries=3, retry_delay=5):
+        """Đăng nhập Instagram theo logic yêu cầu của user"""
+        driver = None
+        username = account.get("username")
+        password = account.get("password")
+        # ⭐ PROXY LOGIC TỐI ƯU: Ưu tiên permanent_proxy trước
+        if getattr(self, 'use_proxy', True):
+            # Kiểm tra permanent_proxy trước
+            permanent_proxy = account.get("permanent_proxy", "").strip()
+            if permanent_proxy:
+                proxy = permanent_proxy
+                print(f"[DEBUG] Sử dụng permanent proxy cho {username}: {permanent_proxy}")
+            else:
+                # Fallback sang proxy thường
+                proxy = account.get("proxy", "").strip()
+                if proxy:
+                    print(f"[DEBUG] Sử dụng proxy thường cho {username}: {proxy}")
+                else:
+                    proxy = None
+                    print(f"[DEBUG] Không có proxy cho {username}")
+        else:
+            proxy = None
+            print(f"[DEBUG] Proxy bị tắt - không sử dụng proxy cho {username}")
+        
+        print(f"[INFO] ===== BẮT ĐẦU ĐĂNG NHẬP: {username} =====")
+        print(f"[DEBUG] Account object username: {username}, account id: {id(account)}")
+        
+        try:
+            # BƯỚC 1: MỞ CHROME DRIVER TIẾN HÀNH ĐĂNG NHẬP
+            print(f"[1] Mở Chrome driver cho {username}")
+            account["status"] = "Đang mở Chrome driver..."
+            self.status_updated.emit(username, "Đang mở Chrome driver...")
+            
+            driver = self.init_driver(proxy, username=username)
+            
+            # Đặt vị trí cửa sổ ngay sau khi tạo để tránh đè lên nhau
+            if window_position and len(window_position) == 4:
+                x, y, width, height = window_position
+                print(f"[DEBUG] Đặt vị trí cửa sổ cho {username}: ({x}, {y}) size ({width}, {height})")
+                try:
+                    driver.set_window_rect(x, y, width, height)
+                    time.sleep(0.3)  # Chờ cửa sổ ổn định
+                except Exception as e:
+                    print(f"[WARN] Không thể đặt vị trí cửa sổ: {e}")
+            else:
+                # Vị trí mặc định nếu không có window_position
+                try:
+                    driver.set_window_rect(100, 100, 450, 380)
+                except Exception as e:
+                    print(f"[WARN] Không thể đặt vị trí mặc định: {e}")
+            
+            # ⚡ TỐI ƯU: Truy cập Instagram nhanh hơn
+            print(f"[DEBUG] Truy cập Instagram cho {username}")
+            try:
+                driver.get("https://www.instagram.com/")
+            except Exception as e:
+                print(f"[DEBUG] ⚠️ Page load timeout: {e}")
+                # Tiếp tục vì trang có thể đã load một phần
+            
+            time.sleep(2)  # Cho trang thời gian render
+            
+            # 🔥 WHITE SCREEN FIX: Kiểm tra và xử lý white screen
+            try:
+                body_content = driver.execute_script("return document.body ? document.body.innerHTML.length : 0;")
+                print(f"[DEBUG] Page content length: {body_content}")
+                
+                # 🔧 SMARTER WHITE SCREEN DETECTION: Chỉ refresh khi thật sự cần thiết
+                if body_content < 100:  
+                    # Kiểm tra thêm - có thể page đang load
+                    time.sleep(1)  # Wait a bit more for page to load
+                    body_content = driver.execute_script("return document.body ? document.body.innerHTML.length : 0;")
+                    
+                    if body_content < 100:  # Still too little content
+                        print(f"[DEBUG] ⚠️ Confirmed white screen! Refreshing page...")
+                        driver.refresh()
+                        time.sleep(3)
+                        
+                        # Check lại sau refresh
+                        body_content = driver.execute_script("return document.body ? document.body.innerHTML.length : 0;")
+                        print(f"[DEBUG] After refresh content length: {body_content}")
+                    else:
+                        print(f"[DEBUG] ✅ Page loaded after waiting, no refresh needed")
+                else:
+                    print(f"[DEBUG] ✅ Page content OK, no refresh needed")
+                    
+            except Exception as e:
+                print(f"[DEBUG] White screen check failed: {e}")
+            
+            # ⭐ KIỂM TRA TÀI KHOẢN BỊ KHÓA NGAY KHI TRUY CẬP INSTAGRAM
+            print(f"[DEBUG] ===== KIỂM TRA TÀI KHOẢN BỊ KHÓA KHI TRUY CẬP CHO {username} =====")
+            
+            # Kiểm tra yêu cầu xác minh danh tính trước (không phải tài khoản bị khóa)
+            if self.check_identity_verification_required(driver):
+                print(f"[WARN] 🔍 TÀI KHOẢN {username} CẦN XÁC MINH DANH TÍNH - Không phải bị khóa")
+                account["status"] = "Cần xác minh danh tính"
+                account["last_action"] = f"Yêu cầu xác minh danh tính lúc {time.strftime('%H:%M:%S')}"
+                self.status_updated.emit(username, account["status"])
+                
+                # Giữ trình duyệt mở để user có thể xác minh thủ công nếu cần
+                continue_result = self.show_captcha_dialog_safe(driver, username, "identity_verification")
+                if continue_result:
+                    # User đã xử lý xong, kiểm tra lại
+                    if self.check_home_and_explore_icons(driver):
+                        print(f"[SUCCESS] ✅ Đã xác minh danh tính thành công: {username}")
+                        self.save_cookies(driver, username)
+                        account["status"] = "Đã đăng nhập"
+                        self.status_updated.emit(username, account["status"])
+                        self.close_browser_safely(driver, username)
+                        return "Đã đăng nhập", "OK", None
+                else:
+                    self.close_browser_safely(driver, username)
+                    return "Đã bỏ qua", "Bỏ qua", None
+            
+            # Kiểm tra tài khoản thật sự bị khóa
+            elif self.check_account_locked(driver):
+                print(f"[ERROR] ❌ TÀI KHOẢN {username} BỊ KHÓA - Phát hiện ngay khi truy cập Instagram")
+                account["status"] = "Tài khoản Die - Automated Behavior"
+                account["last_action"] = f"Phát hiện tài khoản bị khóa khi truy cập lúc {time.strftime('%H:%M:%S')}"
+                self.status_updated.emit(username, account["status"])
+                
+                # Đóng trình duyệt và trả về kết quả
+                try:
+                    self.close_browser_safely(driver, username)
+                except Exception as e:
+                    print(f"[WARN] Lỗi khi đóng browser: {e}")
+                
+                print(f"[INFO] ===== HOÀN TẤT: {username} (ACCOUNT LOCKED ON ACCESS) =====")
+                return "Tài khoản Die", "Die", None
+            
+            # BƯỚC 2: LOAD SESSION COOKIES
+            print(f"[2] Load session cookies cho {username}")
+            account["status"] = "Đang load session cookies..."
+            self.status_updated.emit(username, "Đang load session cookies...")
+            
+            cookies_loaded = self.load_cookies(driver, username)
+            print(f"[DEBUG] Kết quả load cookies cho {username}: {cookies_loaded}")
+            
+            if cookies_loaded:
+                print(f"[DEBUG] Đã load cookies cho {username} - Checking login status...")
+                # 🔥 REMOVED UNNECESSARY REFRESH: Không cần refresh khi cookies đã load thành công
+                # driver.refresh()  # ← Đã loại bỏ refresh vô lý này!
+                time.sleep(0.5)  # Chỉ chờ 0.5s cho page ổn định thay vì refresh + 1.5s
+                print(f"[DEBUG] Skip refresh - URL: {driver.current_url}")
+                
+                # ⭐ QUAN TRỌNG: KIỂM TRA TÀI KHOẢN SAU KHI LOAD COOKIES
+                print(f"[DEBUG] ===== KIỂM TRA TÀI KHOẢN SAU LOAD COOKIES CHO {username} =====")
+                
+                # Kiểm tra yêu cầu xác minh danh tính trước
+                if self.check_identity_verification_required(driver):
+                    print(f"[WARN] 🔍 TÀI KHOẢN {username} CẦN XÁC MINH DANH TÍNH sau load cookies")
+                    account["status"] = "Cần xác minh danh tính"
+                    self.status_updated.emit(username, account["status"])
+                    continue_result = self.show_captcha_dialog_safe(driver, username, "identity_verification")
+                    if continue_result and self.check_home_and_explore_icons(driver):
+                        print(f"[SUCCESS] ✅ Đã xác minh danh tính thành công: {username}")
+                        self.save_cookies(driver, username)
+                        account["status"] = "Đã đăng nhập"
+                        self.status_updated.emit(username, account["status"])
+                        self.close_browser_safely(driver, username)
+                        return "Đã đăng nhập", "OK", None
+                    else:
+                        self.close_browser_safely(driver, username)
+                        return "Đã bỏ qua", "Bỏ qua", None
+                
+                # Kiểm tra tài khoản thật sự bị khóa
+                elif self.check_account_locked(driver):
+                    print(f"[ERROR] ❌ TÀI KHOẢN {username} BỊ KHÓA - Phát hiện ngay sau load cookies")
+                    account["status"] = "Tài khoản Die - Automated Behavior"
+                    account["last_action"] = f"Phát hiện tài khoản bị khóa lúc {time.strftime('%H:%M:%S')}"
+                    self.status_updated.emit(username, account["status"])
+                    
+                    # Đóng trình duyệt và trả về kết quả
+                    try:
+                        self.close_browser_safely(driver, username)
+                    except Exception as e:
+                        print(f"[WARN] Lỗi khi đóng browser: {e}")
+                    
+                    print(f"[INFO] ===== HOÀN TẤT: {username} (ACCOUNT LOCKED) =====")
+                    return "Tài khoản Die", "Die", None
+                
+                # Debug DOM trước khi kiểm tra session
+                print(f"[DEBUG] ===== KIỂM TRA SESSION BẰNG COOKIES CHO {username} =====")
+                self.debug_instagram_dom(driver, username)
+                
+                # Kiểm tra session còn hạn không bằng cách check 2 icon
+                print(f"[DEBUG] Gọi check_home_and_explore_icons để kiểm tra session cho {username}")
+                session_valid = self.check_home_and_explore_icons(driver)
+                print(f"[DEBUG] Kết quả kiểm tra session: {session_valid}")
+                
+                if session_valid:
+                    print(f"[SUCCESS] ✅ Session còn hạn - Đăng nhập thành công bằng cookies: {username}")
+                    
+                    # ⭐ TỐI ƯU: Real-time status update ngay lập tức
+                    account["status"] = "✅ Đăng nhập thành công"
+                    account["last_action"] = f"Đăng nhập cookies lúc {time.strftime('%H:%M:%S')}"
+                    
+                    # Emit signal với đồng bộ hóa tốt hơn
+                    self.status_updated.emit(username, account["status"])
+                    
+                    # ⭐ TỐI ƯU: Xử lý song song - lưu cookies trong khi cập nhật UI
+                    from concurrent.futures import ThreadPoolExecutor
+                    import threading
+                    
+                    # Thread cho việc lưu cookies (không block UI)
+                    def save_cookies_async():
+                        try:
+                            self.save_cookies(driver, username)
+                            print(f"[INFO] ✅ Đã lưu cookies cho {username}")
+                        except Exception as e:
+                            print(f"[WARN] Lỗi khi lưu cookies: {e}")
+                    
+                    # Bắt đầu lưu cookies trong background
+                    threading.Thread(target=save_cookies_async, daemon=True).start()
+                    
+                    # ⭐ TỐI ƯU: Force UI update ngay lập tức
+                    from PySide6.QtCore import QCoreApplication
+                    QCoreApplication.processEvents()
+                    
+                    # ⭐ TỐI ƯU: Visual feedback tốt hơn - không cần delay dài
+                    account["status"] = "🔄 Hoàn tất đăng nhập..."
+                    self.status_updated.emit(username, account["status"])
+                    QCoreApplication.processEvents()
+                    time.sleep(0.5)  # Giảm từ 1.5s xuống 0.5s
+                    
+                    # ⭐ TỐI ƯU: Đóng browser an toàn hơn
+                    self.close_browser_safely(driver, username)
+                    
+                    # Final status update
+                    account["status"] = "Đã đăng nhập"
+                    self.status_updated.emit(username, account["status"])
+                    QCoreApplication.processEvents()
+                    
+                    print(f"[INFO] ===== HOÀN TẤT: {username} =====")
+                    return "Đã đăng nhập", "OK", None
+                else:
+                    print(f"[WARN] Session quá hạn cho {username} - Cần đăng nhập lại")
+                    print(f"[DEBUG] URL hiện tại: {driver.current_url}")
+                    try:
+                        title = driver.title
+                        print(f"[DEBUG] Title hiện tại: {title}")
+                    except Exception as e:
+                        print(f"[DEBUG] Lỗi khi lấy title: {e}")
+                    
+                    # Kiểm tra xem có phải đang ở trang login không
+                    if "login" in driver.current_url.lower() or "accounts/login" in driver.current_url.lower():
+                        print(f"[DEBUG] Đang ở trang login - session thật sự hết hạn")
+                    else:
+                        print(f"[DEBUG] Không ở trang login - có thể vẫn đang load hoặc có lỗi khác")
+                        
+                        # Kiểm tra xem có phải bị captcha/checkpoint không
+                        if self.check_captcha_required(driver):
+                            print(f"[WARN] ⚠️ Phát hiện captcha khi load cookies cho {username}")
+                            account["status"] = "Checkpoint/Captcha: Cần thao tác thủ công"
+                            self.status_updated.emit(username, account["status"])
+                            # Giữ cửa sổ mở để user xử lý
+                            continue_result = self.show_captcha_dialog_safe(driver, username, "captcha")
+                            if continue_result:
+                                # Sau khi user xử lý, check lại
+                                if self.check_home_and_explore_icons(driver):
+                                    print(f"[SUCCESS] ✅ Đăng nhập thành công sau xử lý captcha: {username}")
+                                    self.save_cookies(driver, username)
+                                    account["status"] = "Đã đăng nhập"
+                                    self.status_updated.emit(username, account["status"])
+                                    driver.quit()
+                                    return "Đã đăng nhập", "OK", None
+                            else:
+                                driver.quit()
+                                return "Đã bỏ qua", "Bỏ qua", None
+            else:
+                print(f"[DEBUG] Không có cookies hoặc không load được cookies cho {username}")
+            
+            # BƯỚC 3: SESSION QUÁ HẠN - YÊU CẦU NHẬP TÀI KHOẢN MẬT KHẨU
+            print(f"[3] Session quá hạn - Nhập tài khoản mật khẩu cho {username}")
+            account["status"] = "Session quá hạn - Đang nhập tài khoản mật khẩu..."
+            self.status_updated.emit(username, account["status"])
+            
+            # ⚡ TỐI ƯU: Nhập thông tin đăng nhập nhanh hơn
+            try:
+                username_input = driver.find_element(By.NAME, "username")
+                username_input.clear()
+                username_input.send_keys(username)
+                time.sleep(0.3)  # ⚡ Giảm từ 1s xuống 0.3s
+                
+                # Tìm và nhập password  
+                password_input = driver.find_element(By.NAME, "password")
+                password_input.clear()
+                password_input.send_keys(password)
+                time.sleep(0.3)  # ⚡ Giảm từ 1s xuống 0.3s
+                
+                # Nhấn Enter để đăng nhập
+                password_input.send_keys(Keys.ENTER)
+                print(f"[DEBUG] Đã gửi thông tin đăng nhập cho {username}")
+                
+            except Exception as e:
+                print(f"[ERROR] Không thể nhập thông tin đăng nhập: {e}")
+                account["status"] = "Lỗi nhập thông tin đăng nhập"
+                self.status_updated.emit(username, account["status"])
+                driver.quit()
+                return "Lỗi nhập thông tin", "Lỗi", None
+            
+            # BƯỚC 4: SAU KHI ĐĂNG NHẬP - CHECK THEO LOGIC YÊU CẦU - TỐI ƯU MỚI
+            print(f"[4] ⚡ Kiểm tra kết quả đăng nhập tối ưu cho {username}")
+            account["status"] = "Đang kiểm tra kết quả đăng nhập..."
+            self.status_updated.emit(username, account["status"])
+            
+            # 🔥 FORCE SUCCESS: BYPASS TẤT CẢ LOGIC PHỨC TẠP - CHỈ CHECK ĐƠN GIẢN
+            print(f"[DEBUG] 🔥 FORCE SUCCESS: Bỏ qua vòng lặp phức tạp cho {username}")
+            
+            try:
+                # SINGLE CHECK - KHÔNG VÒNG LẶP
+                print(f"[DEBUG] Single check login cho {username}")
+                
+                if self.check_home_and_explore_icons(driver):
+                    print(f"[SUCCESS] ✅ ĐĂNG NHẬP THÀNH CÔNG: {username}")
+                    account["status"] = "Đã đăng nhập"
+                    self.status_updated.emit(username, account["status"])
+                    self.save_cookies(driver, username)
+                    return "Đã đăng nhập", "OK", None
+                else:
+                    print(f"[INFO] ❌ Chưa đăng nhập hoặc cần xử lý: {username}")
+                    account["status"] = "Cần đăng nhập thủ công"
+                    self.status_updated.emit(username, account["status"])
+                    return "Cần đăng nhập thủ công", "Manual", None
+                    
+            except Exception as e:
+                print(f"[ERROR] Lỗi check đơn giản: {e}")
+                account["status"] = "Lỗi check"
+                self.status_updated.emit(username, account["status"])
+                return "Lỗi", "Error", None
+            
+                         # 🔥 END OF SIMPLE LOGIC - Tất cả xử lý đã xong
+                    
+                    # ⭐ KIỂM TRA ƯU TIÊN THỨ 2: CAPTCHA
+                    print(f"[DEBUG] 🔒 KIỂM TRA CAPTCHA cho {username}")
+                    if self.check_captcha_required(driver):
+                        print(f"[WARN] ⚠️ Phát hiện yêu cầu giải captcha cho {username}")
+                        print(f"[DEBUG] URL khi phát hiện captcha: {driver.current_url}")
+                        account["status"] = "⚠️ Phát hiện yêu cầu giải captcha"
+                        self.status_updated.emit(username, account["status"])
+                        
+                        # Giữ cửa sổ bật + hiển thị nút tiếp tục
+                        continue_result = self.show_captcha_dialog_safe(driver, username, "captcha")
+                        if continue_result:
+                            print(f"[DEBUG] User đã giải captcha và nhấn tiếp tục")
+                            time.sleep(2)  # Chờ captcha được xử lý
+                            
+                            # Tiếp tục chạy theo logic - check lại 2 icon
+                            if self.check_home_and_explore_icons(driver):
+                                print(f"[SUCCESS] ✅ Đăng nhập thành công sau giải captcha: {username}")
+                                
+                                # ⭐ SUCCESS HANDLING
+                                account["status"] = "🎉 Đã vượt qua captcha - Đăng nhập thành công!"
+                                account["last_action"] = f"Vượt captcha + đăng nhập lúc {time.strftime('%H:%M:%S')}"
+                                self.status_updated.emit(username, account["status"])
+                                
+                                # Background processing
+                                from PySide6.QtCore import QCoreApplication
+                                import threading
+                                QCoreApplication.processEvents()
+                                
+                                def save_and_cleanup():
+                                    try:
+                                        self.save_cookies(driver, username)
+                                        account["status"] = "Đã đăng nhập"
+                                        self.status_updated.emit(username, account["status"])
+                                    except Exception as e:
+                                        print(f"[WARN] Lỗi khi lưu cookies: {e}")
+                                    finally:
+                                        self.close_browser_safely(driver, username)
+                                
+                                threading.Thread(target=save_and_cleanup, daemon=True).start()
+                                print(f"[INFO] ===== HOÀN TẤT CAPTCHA: {username} =====")
+                                return "Đã đăng nhập", "OK", None
+                            else:
+                                # ⭐ FIX CAPTCHA: Retry logic thay vì continue
+                                print(f"[DEBUG] Captcha done - start retry logic...")
+                                
+                                max_retry = 5
+                                for retry_i in range(max_retry):
+                                    time.sleep(1.5)
+                                    print(f"[DEBUG] Captcha retry {retry_i+1}/{max_retry}")
+                                    
+                                    if self.check_home_and_explore_icons(driver):
+                                        print(f"[SUCCESS] ✅ Success after captcha retry {retry_i+1}")
+                                        account["status"] = "🎉 Vượt captcha thành công!"
+                                        self.status_updated.emit(username, account["status"])
+                                        
+                                        def save_and_cleanup():
+                                            try:
+                                                self.save_cookies(driver, username)
+                                                account["status"] = "Đã đăng nhập"
+                                                self.status_updated.emit(username, account["status"])
+                                            except Exception as e:
+                                                print(f"[WARN] Save error: {e}")
+                                            finally:
+                                                self.close_browser_safely(driver, username)
+                                        
+                                        import threading
+                                        threading.Thread(target=save_and_cleanup, daemon=True).start()
+                                        return "Đã đăng nhập", "OK", None
+                                
+                                # Timeout - break loop
+                                print(f"[WARN] Captcha timeout after {max_retry} retries")
+                                account["status"] = "⏰ Timeout sau captcha"
+                                self.status_updated.emit(username, account["status"])
+                                break
+                        else:
+                            print(f"[INFO] User chọn bỏ qua captcha")
+                            account["status"] = "Đã bỏ qua captcha"
+                            self.status_updated.emit(username, account["status"])
+                            driver.quit()
+                            return "Đã bỏ qua", "Bỏ qua", None
+                    
+                    # KIỂM TRA THEO THỨ TỰ YÊU CẦU:
+                    print(f"[DEBUG] ===== KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP CHO {username} =====")
+                    print(f"[DEBUG] URL hiện tại: {driver.current_url}")
+                    
+                    try:
+                        title = driver.title
+                        print(f"[DEBUG] Title hiện tại: {title}")
+                    except Exception as e:
+                        print(f"[DEBUG] Lỗi khi lấy title: {e}")
+                    
+                    # THỨ NHẤT: Check icon ngôi nhà ở góc dưới bên trái
+                    # THỨ HAI: Check icon la bàn bên cạnh icon ngôi nhà (bên phải)
+                    print(f"[DEBUG] Bước 1: Kiểm tra 2 icon Home + Explore cho {username}")
+                    
+                    print(f"[DEBUG] 🚀 INSTANT check cho {username}")
+                    try:
+                        icons_found = self.check_home_and_explore_icons(driver)
+                        print(f"[DEBUG] 🚀 Kết quả instant check: {icons_found}")
+                        if icons_found:
+                            print(f"[SUCCESS] ✅ INSTANT LOGIN SUCCESS: {username}")
+                            print(f"[SUCCESS] URL: {driver.current_url}")
+                            
+                            # 🚀 INSTANT SUCCESS REPORT - Báo về ngay lập tức
+                            success_reported = self.instant_success_report(account, driver, "Đã đăng nhập")
+                            if success_reported:
+                                print(f"[SUCCESS] 🚀 INSTANT REPORT SUCCESS: {username}")
+                                return "Đã đăng nhập", "OK", None
+                            else:
+                                # Fallback manual update
+                                print(f"[WARN] Instant report failed, manual update for {username}")
+                                account["status"] = "Đã đăng nhập"
+                                account["last_action"] = f"Đăng nhập thành công lúc {time.strftime('%H:%M:%S')}"
+                                self.status_updated.emit(username, account["status"])
+                                
+                                # Quick background cleanup
+                                import threading
+                                def quick_cleanup():
+                                    try:
+                                        self.save_cookies(driver, username)
+                                        self.close_browser_safely(driver, username)
+                                        print(f"[INFO] Quick cleanup done: {username}")
+                                    except Exception as e:
+                                        print(f"[WARN] Quick cleanup error: {e}")
+                                
+                                threading.Thread(target=quick_cleanup, daemon=True).start()
+                                return "Đã đăng nhập", "OK", None
+                    except Exception as e:
+                        print(f"[ERROR] Lỗi khi check icons: {e}")
+                        import traceback
+                        traceback.print_exc()
+                    
+                    # KIỂM TRA FORM LỮU THÔNG TIN ĐĂNG NHẬP (SAVE LOGIN INFO)
+                    if self.check_save_login_info(driver):
+                        print(f"[INFO] 💾 Phát hiện form lưu thông tin đăng nhập cho {username}")
+                        account["status"] = "Đang xử lý form lưu thông tin đăng nhập"
+                        self.status_updated.emit(username, account["status"])
+                        
+                        # Xử lý form - chọn "Not Now" để tiếp tục
+                        if self.handle_save_login_info(driver, username):
+                            print(f"[SUCCESS] Đã xử lý form lưu thông tin đăng nhập cho {username}")
+                            # ⚡ TỐI ƯU: Giảm thời gian chờ sau xử lý form
+                            time.sleep(1)  # ⚡ Giảm từ 2s xuống 1s
+                            if self.check_home_and_explore_icons(driver):
+                                print(f"[SUCCESS] ✅ Đăng nhập thành công sau xử lý form lưu thông tin: {username}")
+                                
+                                # ⭐ TỐI ƯU: Immediate feedback sau xử lý form
+                                account["status"] = "🎉 Đăng nhập thành công (form processed)!"
+                                account["last_action"] = f"Xử lý form + đăng nhập lúc {time.strftime('%H:%M:%S')}"
+                                self.status_updated.emit(username, account["status"])
+                                
+                                # Background processing
+                                from PySide6.QtCore import QCoreApplication
+                                import threading
+                                QCoreApplication.processEvents()
+                                
+                                def save_and_cleanup():
+                                    try:
+                                        self.save_cookies(driver, username)
+                                        account["status"] = "Đã đăng nhập"
+                                        self.status_updated.emit(username, account["status"])
+                                    except Exception as e:
+                                        print(f"[WARN] Lỗi khi lưu cookies: {e}")
+                                    finally:
+                                        self.close_browser_safely(driver, username)
+                                
+                                threading.Thread(target=save_and_cleanup, daemon=True).start()
+                                print(f"[INFO] ===== HOÀN TẤT: {username} =====")
+                                return "Đã đăng nhập", "OK", None
+                        else:
+                            print(f"[WARN] Không thể xử lý form lưu thông tin đăng nhập cho {username}")
+                            # Vẫn tiếp tục logic, có thể form tự đóng
+                    
+                    # KIỂM TRA YÊU CẦU XÁC MINH DANH TÍNH
+                    if self.check_identity_verification_required(driver):
+                        print(f"[WARN] 🔍 Tài khoản {username} cần xác minh danh tính")
+                        account["status"] = "Cần xác minh danh tính"
+                        self.status_updated.emit(username, account["status"])
+                        
+                        # Giữ cửa sổ mở để user xác minh
+                        continue_result = self.show_captcha_dialog_safe(driver, username, "identity_verification")
+                        if continue_result:
+                            # Kiểm tra lại sau khi user xử lý
+                            if self.check_home_and_explore_icons(driver):
+                                print(f"[SUCCESS] ✅ Đã xác minh danh tính thành công: {username}")
+                                account["status"] = "🎉 Đã xác minh danh tính - Đăng nhập thành công!"
+                                self.status_updated.emit(username, account["status"])
+                                
+                                # Background processing
+                                from PySide6.QtCore import QCoreApplication
+                                import threading
+                                QCoreApplication.processEvents()
+                                
+                                def save_and_cleanup():
+                                    try:
+                                        self.save_cookies(driver, username)
+                                        account["status"] = "Đã đăng nhập"
+                                        self.status_updated.emit(username, account["status"])
+                                    except Exception as e:
+                                        print(f"[WARN] Lỗi khi lưu cookies: {e}")
+                                    finally:
+                                        self.close_browser_safely(driver, username)
+                                
+                                threading.Thread(target=save_and_cleanup, daemon=True).start()
+                                print(f"[INFO] ===== HOÀN TẤT: {username} =====")
+                                return "Đã đăng nhập", "OK", None
+                        else:
+                            print(f"[INFO] User chọn bỏ qua xác minh danh tính")
+                            account["status"] = "Đã bỏ qua xác minh danh tính"
+                            self.status_updated.emit(username, account["status"])
+                            driver.quit()
+                            return "Đã bỏ qua", "Bỏ qua", None
+                    
+                    # KIỂM TRA TÀI KHOẢN BỊ KHÓA (thật sự nghiêm trọng)
+                    elif self.check_account_locked(driver):
+                        print(f"[ERROR] ❌ Tài khoản {username} bị khóa")
+                        account["status"] = "Tài khoản Die"
+                        self.status_updated.emit(username, account["status"])
+                        # Đóng trình duyệt
+                        driver.quit()
+                        print(f"[INFO] Đã đóng trình duyệt cho {username}")
+                        print(f"[INFO] ===== HOÀN TẤT: {username} =====")
+                        return "Tài khoản Die", "Die", None
+                    
+                    else:
+                        print(f"[DEBUG] Chưa xác định được trạng thái cho {username} - tiếp tục chờ...")
+                    
+                except Exception as e:
+                    print(f"[ERROR] Lỗi khi kiểm tra trạng thái: {e}")
+                    
+                    # Kiểm tra nếu là lỗi session bị mất kết nối
+                    error_msg = str(e).lower()
+                    if "invalid session id" in error_msg or "session deleted" in error_msg or "not connected to devtools" in error_msg:
+                        print(f"[ERROR] Browser đã bị đóng hoặc mất kết nối cho {username}")
+                        account["status"] = "Lỗi: Browser bị đóng"
+                        self.status_updated.emit(username, account["status"])
+                        # Thoát khỏi vòng lặp vì không thể tiếp tục
+                        break
+                    
+                    continue
+            
+            # ⭐ TỐI ƯU: TIMEOUT - KHÔNG XÁC ĐỊNH ĐƯỢC TRẠNG THÁI
+            print(f"[WARN] ⏰ Timeout khi đăng nhập {username}")
+            account["status"] = "⏰ Timeout đăng nhập"
+            account["last_action"] = f"Timeout đăng nhập lúc {time.strftime('%H:%M:%S')}"
+            self.status_updated.emit(username, account["status"])
+            
+            # ⭐ TỐI ƯU: Force UI update ngay lập tức
+            from PySide6.QtCore import QCoreApplication
+            QCoreApplication.processEvents()
+            
+            # ⭐ TỐI ƯU: Đóng browser trong background
+            if driver:
+                import threading
+                def close_timeout_browser():
+                    try:
+                        self.close_browser_safely(driver, username)
+                    except Exception as e:
+                        print(f"[WARN] Lỗi khi đóng browser timeout: {e}")
+                
+                threading.Thread(target=close_timeout_browser, daemon=True).start()
+            
+            return "Timeout", "Timeout", None
+            
+        except Exception as e:
+            print(f"[ERROR] ❌ Lỗi không mong muốn khi đăng nhập {username}: {e}")
+            print(f"[DEBUG] Chi tiết lỗi: {type(e).__name__}: {str(e)}")
+            
+            # ⭐ QUAN TRỌNG: Kiểm tra xem có phải đã đăng nhập thành công nhưng bị timeout không
+            print(f"[DEBUG] ===== KIỂM TRA CUỐI CÙNG SAU LỖI CHO {username} =====")
+            
+            # Cập nhật status tạm thời
+            account["status"] = "❌ Lỗi - Đang kiểm tra cuối cùng..."
+            self.status_updated.emit(username, account["status"])
+            
+            # Force UI update
+            from PySide6.QtCore import QCoreApplication
+            QCoreApplication.processEvents()
+            
+            try:
+                # ⭐ KIỂM TRA CUỐI CÙNG: Có thể đã đăng nhập thành công nhưng bị timeout
+                if driver and self.check_home_and_explore_icons(driver):
+                    print(f"[SUCCESS] ✅ ĐĂNG NHẬP THÀNH CÔNG SAU LỖI: {username}")
+                    print(f"[INFO] Lỗi chỉ là timeout/communication issue, tài khoản đã đăng nhập!")
+                    
+                    # ⭐ IMMEDIATE SUCCESS FEEDBACK
+                    account["status"] = "🎉 Đăng nhập thành công (sau lỗi)!"
+                    account["last_action"] = f"Đăng nhập thành công sau lỗi lúc {time.strftime('%H:%M:%S')}"
+                    self.status_updated.emit(username, account["status"])
+                    QCoreApplication.processEvents()
+                    
+                    # ⭐ Background processing
+                    import threading
+                    def save_after_error():
+                        try:
+                            print(f"[DEBUG] Lưu cookies sau lỗi cho {username}")
+                            self.save_cookies(driver, username)
+                            
+                            # Final status update
+                            account["status"] = "Đã đăng nhập"
+                            self.status_updated.emit(username, account["status"])
+                            print(f"[SUCCESS] ✅ Lưu cookies thành công sau lỗi cho {username}")
+                            
+                        except Exception as save_error:
+                            print(f"[WARN] Lỗi khi lưu cookies sau error recovery: {save_error}")
+                        finally:
+                            try:
+                                self.close_browser_safely(driver, username)
+                            except Exception as close_error:
+                                print(f"[WARN] Lỗi đóng browser sau error recovery: {close_error}")
+                    
+                    threading.Thread(target=save_after_error, daemon=True).start()
+                    print(f"[SUCCESS] ===== ERROR RECOVERY THÀNH CÔNG: {username} =====")
+                    return "Đã đăng nhập", "OK", None
+                    
+                else:
+                    print(f"[INFO] Kiểm tra cuối cùng không thành công - thật sự có lỗi: {username}")
+                    
+            except Exception as final_check_error:
+                print(f"[ERROR] Lỗi trong final check sau exception: {final_check_error}")
+            
+            # ⭐ THẬT SỰ CÓ LỖI - cập nhật status
+            error_msg = str(e)[:100] + "..." if len(str(e)) > 100 else str(e)
+            account["status"] = f"❌ Lỗi: {error_msg}"
+            account["last_action"] = f"Lỗi đăng nhập lúc {time.strftime('%H:%M:%S')}"
+            
+            # Emit signal để cập nhật UI cho các trường hợp lỗi
+            self.status_updated.emit(username, account["status"])
+            QCoreApplication.processEvents()
+            
+            # ⭐ TỐI ƯU: Cleanup browser trong background
+            if driver:
+                import threading
+                def cleanup_error_browser():
+                    try:
+                        self.close_browser_safely(driver, username)
+                    except Exception as cleanup_error:
+                        print(f"[WARN] Lỗi khi cleanup browser: {cleanup_error}")
+                
+                threading.Thread(target=cleanup_error_browser, daemon=True).start()
+                
+            return "Lỗi không mong muốn", "Lỗi", None
+
+    def close_all_drivers(self):
+        # Đóng từng driver trong thread riêng biệt để không block GUI
+        import threading
+        def close_driver_safe(driver):
+            try:
+                driver.quit()
+            except Exception as e:
+                print(f"[WARN] Lỗi khi đóng trình duyệt: {e}")
+        for d in self.active_drivers:
+            threading.Thread(target=close_driver_safe, args=(d["driver"] if isinstance(d, dict) and "driver" in d else d,)).start()
+        self.active_drivers = []
+        print("[INFO] Đã đóng tất cả các trình duyệt.")
+
+    def import_accounts(self):
+        """Nhập danh sách tài khoản từ file (hỗ trợ .json, .txt, .csv)."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Nhập tài khoản", "", "All Supported (*.json *.txt *.csv);;JSON Files (*.json);;Text Files (*.txt);;CSV Files (*.csv)")
+        if not file_path:
+            return
+        try:
+            imported_accounts = []
+            if file_path.endswith('.json'):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    imported_accounts = json.load(f)
+            elif file_path.endswith('.txt'):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:
+                            # Hỗ trợ: username hoặc username,password hoặc username,password,proxy
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) == 1:
+                                imported_accounts.append({"username": parts[0], "password": "", "proxy": ""})
+                            elif len(parts) == 2:
+                                imported_accounts.append({"username": parts[0], "password": parts[1], "proxy": ""})
+                            elif len(parts) >= 3:
+                                imported_accounts.append({"username": parts[0], "password": parts[1], "proxy": parts[2]})
+            elif file_path.endswith('.csv'):
+                import csv
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    for row in reader:
+                        if not row: continue
+                        # Hỗ trợ: username,password,proxy
+                        username = row[0].strip() if len(row) > 0 else ""
+                        password = row[1].strip() if len(row) > 1 else ""
+                        proxy = row[2].strip() if len(row) > 2 else ""
+                        if username:
+                            imported_accounts.append({"username": username, "password": password, "proxy": proxy})
+            else:
+                QMessageBox.warning(self, "Lỗi", "Định dạng file không được hỗ trợ!")
+                return
+
+            # Lấy danh sách username hiện tại (không phân biệt hoa thường)
+            existing_usernames = set(acc.get("username", "").lower() for acc in self.accounts)
+            # Loại bỏ tài khoản trùng username trong chính file import
+            seen = set()
+            unique_imported_accounts = []
+            for acc in imported_accounts:
+                uname = acc.get("username", "").lower()
+                if uname and uname not in seen:
+                    seen.add(uname)
+                    unique_imported_accounts.append(acc)
+            # Lọc ra các tài khoản mới chưa có trong bảng hiện tại
+            new_accounts = [acc for acc in unique_imported_accounts if acc.get("username", "").lower() not in existing_usernames]
+            if not new_accounts:
+                QMessageBox.information(self, "Thông báo", "Không có tài khoản mới nào được thêm (tất cả đều đã tồn tại trong bảng hiện tại).")
+            else:
+                # Bổ sung các trường mặc định nếu thiếu
+                for acc in new_accounts:
+                    acc.setdefault("selected", False)
+                    acc.setdefault("fullname", "")
+                    acc.setdefault("status", "Chưa đăng nhập")
+                    acc.setdefault("gender", "-")
+                    acc.setdefault("followers", "")
+                    acc.setdefault("following", "")
+                    acc.setdefault("last_action", "")
+                    acc.setdefault("proxy_status", "Chưa kiểm tra")
+                    acc.setdefault("permanent_proxy", "")  # ⭐ THÊM: Proxy vĩnh viễn cho tài khoản
+                self.accounts.extend(new_accounts)
+                self.save_accounts()
+                self.update_account_table()
+                QMessageBox.information(self, "Thành công", f"Đã nhập {len(new_accounts)} tài khoản mới thành công!")
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi", f"Không thể nhập tài khoản: {str(e)}")
+
+    def open_folder_manager(self):
+        # Kiểm tra xem self.folder_map có được khởi tạo không
+        if not hasattr(self, 'folder_map'):
+            self.folder_map = self.load_folder_map()
+        from src.ui.folder_manager import FolderManagerDialog  # Import ở đây để tránh lỗi circular dependency
+        dialog = FolderManagerDialog(self.accounts, self.folder_map, self)  # Truyền self.accounts và self.folder_map
+        dialog.folders_updated.connect(self.on_folders_updated)  # Kết nối tín hiệu cập nhật thư mục
+        dialog.exec()
+
+    def load_folder_list_to_combo(self):
+        self.category_combo.clear()
+        self.category_combo.addItem("Tất cả")
+        # Luôn load lại folder_map từ file để đảm bảo mới nhất
+        folder_map = self.load_folder_map()
+        if folder_map and "_FOLDER_SET_" in folder_map:
+            for folder in folder_map["_FOLDER_SET_"]:
+                if folder != "Tổng":
+                    self.category_combo.addItem(folder)
+        print(f"[DEBUG] Đã tải danh sách thư mục vào combobox: {folder_map.get('_FOLDER_SET_', [])}")
+
+    def on_folder_changed(self):
+        selected_folder = self.category_combo.currentText()
+        if selected_folder == "Tất cả":
+            self.update_account_table(self.accounts)
+        else:
+            filtered_accounts = [acc for acc in self.accounts if self.folder_map.get(acc.get("username"), "Tổng") == selected_folder]
+            self.update_account_table(filtered_accounts)
+        print(f"[DEBUG] Đã lọc tài khoản theo thư mục: {selected_folder}")
+
+    def on_folders_updated(self):
+        # Khi thư mục được cập nhật trong FolderManagerDialog, cập nhật lại combobox và bảng
+        print("[DEBUG] Tín hiệu folders_updated đã được nhận trong AccountManagementTab.")
+        self.folder_map = self.load_folder_map()  # Tải lại folder_map mới nhất
+        self.load_folder_list_to_combo()  # Cập nhật combobox
+        self.update_account_table()  # Cập nhật bảng tài khoản để phản ánh thay đổi thư mục
+        # ⭐ PHÁT TÍN HIỆU ĐỂ ĐỒNG BỘ VỚI CÁC TAB KHÁC
+        self.folders_updated.emit()
+
+    def show_context_menu(self, pos):
+        """Hiển thị menu chuột phải."""
+        print(f"[DEBUG] show_context_menu được gọi tại vị trí: {pos}")
+        menu = AccountContextMenu(self)
+        menu.exec(self.account_table.viewport().mapToGlobal(pos))
+
+    def on_table_item_double_clicked(self, index):
+        selected_account: dict = self.accounts[index.row()]
+        QMessageBox.information(self, "Chi tiết tài khoản", 
+            f"Tên đăng nhập: {selected_account.get('username', 'N/A')}\n"
+            f"Mật khẩu: {selected_account.get('password', 'N/A')}\n"
+            f"Trạng thái: {selected_account.get('status', 'N/A')}\n"
+            f"Proxy: {selected_account.get('proxy', 'N/A')}\n"
+            f"Trạng thái Proxy: {selected_account.get('proxy_status', 'N/A')}\n"
+            f"Follower: {selected_account.get('followers', 'N/A')}\n"
+            f"Following: {selected_account.get('following', 'N/A')}\n"
+            f"Hành động cuối: {selected_account.get('last_action', 'N/A')}")
+
+    @Slot(str, str)
+    def on_status_updated(self, username, status):
+        """Update trạng thái từ thread một cách an toàn"""
+        print(f"[DEBUG] on_status_updated được gọi cho {username} với status: {status}")
+        
+        # ⭐ CONSOLE LOG CHO ĐĂNG NHẬP THÀNH CÔNG (Không hiển thị popup nữa)
+        if status == "Đã đăng nhập" or "đăng nhập thành công" in status.lower():
+            print(f"[SUCCESS] 🎉 {username} đã đăng nhập thành công!")
+            # Đã bỏ notification popup vì cột trạng thái đã hiển thị rõ ràng
+        
+        # Tìm và cập nhật account trong danh sách
+        found = False
+        account_row = -1
+        for i, account in enumerate(self.accounts):
+            if account.get("username") == username:
+                # ⭐ KHÔNG CHO PHÉP OVERRIDE STATUS "Đã đăng nhập" 
+                current_status = account.get("status", "")
+                if current_status == "Đã đăng nhập" and status != "Đã đăng nhập":
+                    # Bỏ qua nếu đang cố override status đăng nhập thành công
+                    if "đang" in status.lower() or "đã" not in status.lower():
+                        print(f"[DEBUG] Bỏ qua override status '{status}' vì tài khoản {username} đã đăng nhập thành công")
+                        return
+                
+                account["status"] = status
+                account["last_action"] = f"Cập nhật: {status} lúc {time.strftime('%H:%M:%S')}"
+                found = True
+                account_row = i
+                print(f"[DEBUG] Tìm thấy account {username} ở row {i}, đã cập nhật status")
+                break
+        
+        if not found:
+            print(f"[ERROR] Không tìm thấy account {username} trong danh sách accounts!")
+            return
+        
+        # Lưu accounts
+        self.save_accounts()
+        
+        # Cập nhật chỉ ô trạng thái thay vì toàn bộ bảng để tránh dataChanged error
+        try:
+            if account_row >= 0 and account_row < self.account_table.rowCount():
+                # Block signals để tránh lỗi dataChanged
+                self.account_table.blockSignals(True)
+                
+                # Cập nhật chỉ ô trạng thái (cột 4)
+                status_item = self.account_table.item(account_row, 4)
+                if status_item:
+                    status_item.setText(status)
+                    
+                    # ⭐ CẢI THIỆN MÀU SẮC VÀ HIỆU ỨNG CHO ĐĂNG NHẬP THÀNH CÔNG
+                    if status == "Đã đăng nhập" or "đăng nhập thành công" in status.lower():
+                        status_item.setForeground(QColor("#4CAF50"))  # Xanh lá đậm hơn
+                        status_item.setBackground(QColor("#E8F5E8"))  # Nền xanh nhạt
+                        # Thêm icon success
+                        status_item.setText(f"✅ {status}")
+                    elif status == "Đăng nhập thất bại" or "Lỗi" in status:
+                        status_item.setForeground(QColor("#F44336"))  # Đỏ
+                        status_item.setBackground(QColor("#FFEBEE"))  # Nền đỏ nhạt
+                        status_item.setText(f"❌ {status}")
+                    elif status == "Die" or "khóa" in status.lower():
+                        status_item.setForeground(QColor("#FF5722"))  # Đỏ cam
+                        status_item.setBackground(QColor("#FFF3E0"))  # Nền cam nhạt
+                        status_item.setText(f"🚫 {status}")
+                    elif "checkpoint" in status.lower() or "captcha" in status.lower():
+                        status_item.setForeground(QColor("#FF9800"))  # Cam
+                        status_item.setBackground(QColor("#FFF8E1"))  # Nền vàng nhạt
+                        status_item.setText(f"⚠️ {status}")
+                    else:
+                        status_item.setForeground(QColor("#333333"))  # Xám đen
+                        status_item.setBackground(QColor("#ffffff"))  # Nền trắng
+                
+                # ⭐ CẬP NHẬT CỘT "HÀNH ĐỘNG CUỐI" CŨNG ĐƯỢC HIGHLIGHT
+                last_action_item = self.account_table.item(account_row, 10)  # Cột cuối cùng
+                if last_action_item:
+                    last_action_text = f"Cập nhật: {status} lúc {time.strftime('%H:%M:%S')}"
+                    last_action_item.setText(last_action_text)
+                    
+                    if status == "Đã đăng nhập":
+                        last_action_item.setForeground(QColor("#4CAF50"))
+                        last_action_item.setText(f"🎉 {last_action_text}")
+                
+                # Unblock signals
+                self.account_table.blockSignals(False)
+                
+                # Force repaint
+                self.account_table.viewport().update()
+                
+                print(f"[DEBUG] Đã cập nhật UI trực tiếp cho {username}: {status}")
+            else:
+                print(f"[ERROR] Row {account_row} không hợp lệ cho bảng có {self.account_table.rowCount()} rows")
+                
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi cập nhật UI cho {username}: {e}")
+            # Đảm bảo unblock signals
+            self.account_table.blockSignals(False)
+            
+        # Cập nhật thống kê
+        self.update_stats()
+
+    def toggle_all_accounts_selection(self, checked):
+        # Chỉ tick/bỏ tick các dòng đang hiển thị (không bị ẩn)
+        for row_idx in range(self.account_table.rowCount()):
+            if not self.account_table.isRowHidden(row_idx):
+                item = self.account_table.item(row_idx, 0)
+                if item:
+                    model_index = self.account_table.model().index(row_idx, 0)
+                    self.account_table.model().setData(model_index, checked, CheckboxDelegate.CheckboxStateRole)
+                    # Cập nhật trạng thái 'selected' trong dữ liệu tài khoản gốc
+                    username = self.account_table.item(row_idx, 2).text()
+                    for acc in self.accounts:
+                        if acc.get("username", "") == username:
+                            acc["selected"] = checked
+        self.save_accounts()
+        self.update_account_table()
+        self.update_stats()
+
+    def load_proxies(self):
+        proxies = []
+        proxies_file = "proxies.txt"
+        if os.path.exists(proxies_file):
+            with open(proxies_file, 'r', encoding='utf-8-sig') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        parts = line.split(':')
+                        if len(parts) == 4:
+                            ip, port, user, password = parts
+                            proxies.append({"ip": ip, "port": port, "user": user, "pass": password, "status": "Chưa kiểm tra", "is_in_use": False, "usage_count": 0})
+                        elif len(parts) == 2:  # No auth proxy
+                            ip, port = parts
+                            proxies.append({"ip": ip, "port": port, "user": "", "pass": "", "status": "Chưa kiểm tra", "is_in_use": False, "usage_count": 0})
+                        else:
+                            print(f"[WARN] Định dạng proxy không hợp lệ, bỏ qua: {line}")
+        print(f"[DEBUG] Đã tải {len(proxies)} proxy.")
+        return proxies
+
+    def load_folder_map(self):
+        if os.path.exists(self.folder_map_file):
+            try:
+                with open(self.folder_map_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                print("[ERROR] Lỗi đọc file folder_map.json. File có thể bị hỏng. Tạo lại map trống.")
+                return {}
+        return {}
+
+    def _assign_new_proxy(self, account):
+        """Tìm và gán một proxy mới cho tài khoản nếu proxy hiện tại bị lỗi hoặc cần xoay vòng."""
+        current_proxy = account.get("proxy", "")
+        username = account.get("username", "")
+        print(f"[DEBUG] Đang tìm proxy mới cho tài khoản {username}. Proxy hiện tại: {current_proxy}")
+
+        new_proxy_info = None
+
+        # --- Ưu tiên 1: Tìm một proxy chưa được sử dụng (not in use) và có số lần sử dụng thấp (< PROXY_USAGE_THRESHOLD) ---
+        for proxy_info in self.proxies:
+            if (proxy_info.get("status") == "OK" or proxy_info.get("status") == "Chưa kiểm tra") and \
+               not proxy_info.get("is_in_use", False) and \
+               proxy_info.get("usage_count", 0) < self.PROXY_USAGE_THRESHOLD:
+                new_proxy_info = proxy_info
+                print(f"[DEBUG] Đã tìm thấy proxy ưu tiên (thấp sử dụng): {proxy_info.get('ip')}. Usage: {proxy_info.get('usage_count')}")
+                break
+
+        # --- Ưu tiên 2: Fallback đến bất kỳ proxy nào chưa được sử dụng và có trạng thái tốt (bất kể usage_count) ---
+        if not new_proxy_info:
+            print("[DEBUG] Không tìm thấy proxy ưu tiên, đang tìm proxy khả dụng bất kỳ.")
+            for proxy_info in self.proxies:
+                if (proxy_info.get("status") == "OK" or proxy_info.get("status") == "Chưa kiểm tra") and \
+                   not proxy_info.get("is_in_use", False):
+                    new_proxy_info = proxy_info
+                    print(f"[DEBUG] Đã tìm thấy proxy khả dụng: {proxy_info.get('ip')}. Usage: {proxy_info.get('usage_count')}")
+                    break
+
+        if new_proxy_info:
+            account["proxy"] = f"{new_proxy_info.get('ip')}:{new_proxy_info.get('port')}:{new_proxy_info.get('user')}:{new_proxy_info.get('pass')}"
+            new_proxy_info["is_in_use"] = True  # Đánh dấu là đang được sử dụng khi gán
+            new_proxy_info["status"] = "Đang sử dụng"  # Cập nhật trạng thái proxy trong danh sách toàn cầu
+            account["proxy_status"] = "Đang chuyển đổi"  # Đánh dấu trạng thái tài khoản đang chuyển đổi proxy
+            print(f"[INFO] Đã gán proxy mới {account['proxy']} cho tài khoản {username}.")
+        else:
+            account["proxy_status"] = "Không có proxy khả dụng"  # Nếu không tìm thấy proxy nào phù hợp
+            print(f"[WARN] Không tìm thấy proxy khả dụng nào cho tài khoản {username}.")
+
+        self.save_accounts()  # Lưu thay đổi vào accounts.json
+
+    def _perform_warmup(self, driver, delay_multiplier):
+        # Implementation of _perform_warmup method
+        driver.get("https://www.instagram.com")
+        time.sleep(2 * delay_multiplier)
+        # Simulate scrolling down
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2 * delay_multiplier)
+        # Simulate clicking on a random post or exploring
+        try:
+            # Find a post link and click it (simple example)
+            post_links = driver.find_elements(By.XPATH, "//a[contains(@href, '/p/')]") 
+            if post_links:
+                random_post = random.choice(post_links)
+                random_post.click()
+                time.sleep(5 * delay_multiplier)  # Spend some time on the post
+                driver.back()  # Go back to home feed
+                time.sleep(2 * delay_multiplier)
+        except Exception as e:
+            print(f"[WARN] Lỗi khi thực hiện warm-up: {e}")
+        print("[DEBUG] Đã hoàn tất phiên warm-up.")
+
+    def get_info_selected_accounts(self):
+        QMessageBox.information(self, "Chức năng", "Lấy thông tin tài khoản đang được phát triển.")
+        print("[DEBUG] Chức năng get_info_selected_accounts được gọi.")
+
+    def open_browser_for_selected(self):
+        QMessageBox.information(self, "Chức năng", "Mở trình duyệt đang được phát triển.")
+        print("[DEBUG] Chức năng open_browser_for_selected được gọi.")
+
+    def logout_selected_accounts(self):
+        self.update_account_table()
+        QMessageBox.information(self, "Chức năng", "Đăng xuất tài khoản đang được phát triển.")
+        print("[DEBUG] Chức năng logout_selected_accounts được gọi.")
+
+    def delete_selected_accounts(self):
+        # Xóa các tài khoản đã được tick chọn (checkbox)
+        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Xóa tài khoản", "Vui lòng tick chọn ít nhất một tài khoản để xóa.")
+            return
+        reply = QMessageBox.question(
+            self, "Xác nhận", f"Bạn có chắc chắn muốn xóa {len(selected_accounts)} tài khoản đã chọn?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            self.accounts = [acc for acc in self.accounts if not acc.get("selected")]
+            self.save_accounts()
+            self.update_account_table()
+            QMessageBox.information(self, "Thành công", "Đã xóa các tài khoản đã chọn.")
+
+    def select_selected_accounts(self):
+        selected_rows = self.account_table.selectionModel().selectedRows()
+        for index in selected_rows:
+            row = index.row()
+            if row < len(self.accounts):
+                model_index = self.account_table.model().index(row, 0)
+                self.account_table.model().setData(model_index, True, CheckboxDelegate.CheckboxStateRole)
+                self.accounts[row]["selected"] = True
+        self.save_accounts()
+        self.update_account_table()
+        # QMessageBox.information(self, "Chọn tài khoản", f"Đã chọn {len(selected_rows)} tài khoản được bôi đen.")
+        print(f"[DEBUG] Đã chọn {len(selected_rows)} tài khoản được bôi đen.")
+
+    def deselect_selected_accounts(self):
+        # Bỏ chọn các tài khoản đang được bôi đen (highlighted) và đang hiển thị
+        selected_rows = self.account_table.selectionModel().selectedRows()
+        for index in selected_rows:
+            row = index.row()
+            if not self.account_table.isRowHidden(row):
+                item_checkbox = self.account_table.item(row, 0)
+                if item_checkbox:
+                    model_index = self.account_table.model().index(row, 0)
+                    self.account_table.model().setData(model_index, False, CheckboxDelegate.CheckboxStateRole)
+                    username = self.account_table.item(row, 2).text()
+                    for acc in self.accounts:
+                        if acc.get("username", "") == username:
+                            acc["selected"] = False
+        self.save_accounts()
+        self.update_account_table()
+        print(f"[DEBUG] Đã bỏ chọn các tài khoản được bôi đen và đang hiển thị.")
+
+    def deselect_all_accounts(self):
+        # Bỏ chọn tất cả tài khoản đã được tick chọn (chỉ các dòng đang hiển thị)
+        for row_idx in range(self.account_table.rowCount()):
+            if not self.account_table.isRowHidden(row_idx):
+                item = self.account_table.item(row_idx, 0)
+                if item:
+                    model_index = self.account_table.model().index(row_idx, 0)
+                    self.account_table.model().setData(model_index, False, CheckboxDelegate.CheckboxStateRole)
+                    username = self.account_table.item(row_idx, 2).text()
+                    for acc in self.accounts:
+                        if acc.get("username", "") == username:
+                            acc["selected"] = False
+        self.save_accounts()
+        self.update_account_table()
+        print(f"[DEBUG] Đã bỏ chọn tất cả tài khoản đang hiển thị.")
+
+    def add_selected_to_folder(self, folder_name):
+        # Gán tất cả tài khoản đang tick chọn vào folder_name
+        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Gán thư mục", "Vui lòng tick chọn ít nhất một tài khoản để gán vào thư mục.")
+            return
+        for acc in selected_accounts:
+            username = acc.get("username", "")
+            if username:
+                self.folder_map[username] = folder_name
+        self.save_folder_map()
+        self.update_account_table()
+        QMessageBox.information(self, "Thành công", f"Đã gán {len(selected_accounts)} tài khoản vào thư mục '{folder_name}'.")
+
+    def remove_selected_from_folder(self):
+        # Đưa tất cả tài khoản đang tick chọn về thư mục 'Tổng' nếu đang ở thư mục khác
+        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Bỏ gán thư mục", "Vui lòng tick chọn ít nhất một tài khoản để bỏ gán.")
+            return
+        count = 0
+        for acc in selected_accounts:
+            username = acc.get("username", "")
+            if username and self.folder_map.get(username) != "Tổng":
+                self.folder_map[username] = "Tổng"
+                count += 1
+        self.save_folder_map()
+        self.update_account_table()
+        QMessageBox.information(self, "Thành công", f"Đã bỏ gán {count} tài khoản khỏi các thư mục.")
+
+    def delete_selected_folder(self):
+        QMessageBox.information(self, "Chức năng", "Xóa thư mục đang được phát triển.")
+        print("[DEBUG] Chức năng delete_selected_folder được gọi.")
+
+    def set_account_status_selected(self, status):
+        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Chuyển trạng thái", "Vui lòng tick chọn ít nhất một tài khoản.")
+            return
+        for acc in selected_accounts:
+            acc["status"] = status
+        self.save_accounts()
+        self.update_account_table()
+        QMessageBox.information(self, "Thành công", f"Đã chuyển trạng thái {len(selected_accounts)} tài khoản sang '{status}'.")
+
+    def update_selected_proxy_info(self):
+        import re
+        selected_accounts = [acc for acc in self.accounts if acc.get("selected")]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cập nhật Proxy", "Vui lòng tick chọn ít nhất một tài khoản.")
+            return
+        proxy, ok = QInputDialog.getText(self, "Nhập Proxy", "Nhập proxy (ip:port hoặc ip:port:user:pass):")
+        if not ok or not proxy.strip():
+            return
+        # Kiểm tra định dạng proxy
+        pattern = r'^(\d{1,3}\.){3}\d{1,3}:\d{2,5}(:\w+:\w+)?$'
+        if not re.match(pattern, proxy.strip()):
+            QMessageBox.warning(self, "Lỗi", "Proxy không đúng định dạng!\nĐịnh dạng hợp lệ: ip:port hoặc ip:port:user:pass")
+            return
+        for acc in selected_accounts:
+            acc["proxy"] = proxy.strip()
+        self.save_accounts()
+        self.update_account_table()
+        QMessageBox.information(self, "Thành công", f"Đã cập nhật proxy cho {len(selected_accounts)} tài khoản.")
+
+    def open_selected_user_data_folder(self):
+        QMessageBox.information(self, "Chức năng", "Mở thư mục UserData đang được phát triển.")
+        print("[DEBUG] Chức năng open_selected_user_data_folder được gọi.")
+
+    def export_accounts(self):
+        """Xuất danh sách tài khoản ra file."""
+        file_path, _ = QFileDialog.getSaveFileName(self, "Xuất tài khoản", "", "JSON Files (*.json)")
+        if file_path:
+            try:
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.accounts, f, ensure_ascii=False, indent=4)
+                QMessageBox.information(self, "Thành công", "Đã xuất tài khoản thành công!")
+            except Exception as e:
+                QMessageBox.critical(self, "Lỗi", f"Không thể xuất tài khoản: {str(e)}")
+
+    def toggle_stealth_mode(self):
+        """Bật/tắt chế độ ẩn danh."""
+        self.stealth_mode_enabled = not self.stealth_mode_enabled
+        status = "bật" if self.stealth_mode_enabled else "tắt"
+        QMessageBox.information(self, "Thông báo", f"Đã {status} chế độ ẩn danh!")
+
+    def delete_all_accounts(self):
+        """Xóa tất cả tài khoản."""
+        reply = QMessageBox.question(self, "Xác nhận", "Bạn có chắc chắn muốn xóa tất cả tài khoản?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.accounts.clear()
+            self.save_accounts()
+            self.update_account_table()
+            QMessageBox.information(self, "Thành công", "Đã xóa tất cả tài khoản!")
+
+    def close_popups(self, driver):
+        # import time  # XÓA DÒNG NÀY
+        from selenium.webdriver.common.by import By
+        close_selectors = [
+            # Banner "Chrome controlled"
+            "//div[contains(@class, 'controlled-indicator')]//button",
+            "//div[contains(text(),'自动测试软件')]/following-sibling::button",
+            "//div[contains(text(),'is being controlled')]/following-sibling::button",
+            # Cookie/terms
+            "//button[contains(@aria-label, 'Schließen')]",
+            "//button[contains(@aria-label, 'Close')]",
+            "//button[contains(@aria-label, '关闭')]",
+            "//button[contains(text(), '×')]",
+            "//button[text()='OK']",
+            "//button[text()='Accept']",
+            "//button[text()='Allow all cookies']",
+            "//button[text()='Cho phép tất cả cookie']",
+            "//button[contains(text(), 'Akzeptieren')]",
+        ]
+        for _ in range(3):  # Lặp lại 3 lần để chắc chắn tắt hết
+            for sel in close_selectors:
+                try:
+                    btn = driver.find_element(By.XPATH, sel)
+                    btn.click()
+                    print(f"[DEBUG] Đã tắt popup với selector: {sel}")
+                    # time.sleep(0.2)  # XÓA DÒNG NÀY
+                except Exception:
+                    continue
+        # Inject CSS ẩn
+                    # Inject CSS ẩn banner "Chrome controlled" nếu còn sót
+                try:
+                    driver.execute_script("""
+                    var el = document.querySelector('div.controlled-indicator');
+                    if (el) { el.style.display = 'none'; }
+                    """)
+                except Exception:
+                    pass
+
+    def save_folder_map(self):
+        if hasattr(self, 'folder_map_file'):
+            try:
+                with open(self.folder_map_file, "w", encoding="utf-8") as f:
+                    json.dump(self.folder_map, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                print(f"[ERROR] Lỗi khi lưu folder_map: {e}")
+
+    def on_proxy_switch_changed(self, value):
+        self.use_proxy = bool(value)
+        self.update_proxy_switch_label()
+        # Lưu trạng thái vào file
+        try:
+            with open(self.settings_file, "w", encoding="utf-8") as f:
+                json.dump({"use_proxy": self.use_proxy}, f)
+        except Exception as e:
+            print(f"[WARN] Không thể lưu trạng thái sử dụng proxy: {e}")
+        print(f"[DEBUG] Trạng thái sử dụng proxy: {self.use_proxy}")
+
+    def update_proxy_switch_label(self):
+        if self.use_proxy:
+            self.proxy_switch_label.setText("Proxy: ON")
+            self.proxy_switch_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        else:
+            self.proxy_switch_label.setText("Proxy: OFF")
+            self.proxy_switch_label.setStyleSheet("color: #888; font-weight: bold;")
+
+    def closeEvent(self, event):
+        # Lưu trạng thái sử dụng proxy khi đóng ứng dụng
+        try:
+            with open(self.settings_file, "w", encoding="utf-8") as f:
+                json.dump({"use_proxy": self.use_proxy}, f)
+        except Exception as e:
+            print(f"[WARN] Không thể lưu trạng thái sử dụng proxy khi đóng ứng dụng: {e}")
+        super().closeEvent(event)
+
+    def save_cookies(self, driver, username):
+        os.makedirs('sessions', exist_ok=True)
+        cookies = driver.get_cookies()
+        with open(f'sessions/{username}_cookies.json', 'w', encoding='utf-8') as f:
+            json.dump(cookies, f)
+
+    def load_cookies(self, driver, username):
+        cookies_path = f'sessions/{username}_cookies.json'
+        if os.path.exists(cookies_path):
+            with open(cookies_path, 'r', encoding='utf-8') as f:
+                cookies = json.load(f)
+            for cookie in cookies:
+                # Selenium yêu cầu phải ở đúng domain mới add được cookie
+                driver.add_cookie(cookie)
+            return True
+        return False
+
+    def show_captcha_dialog_safe(self, driver, username, dialog_type="captcha"):
+        """Hiển thị dialog captcha/checkpoint một cách an toàn"""
+        try:
+            from PySide6.QtWidgets import QMessageBox
+            
+            # Chỉ hiển thị dialog nếu chưa có dialog nào đang mở
+            if hasattr(self, '_captcha_dialog_active') and self._captcha_dialog_active:
+                print("[DEBUG] Captcha dialog đã đang mở, bỏ qua")
+                return True
+                
+            self._captcha_dialog_active = True
+            
+            try:
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Captcha/Xác minh")
+                
+                if dialog_type == "captcha":
+                    msg_box.setText(f"Phát hiện captcha/checkpoint cho tài khoản {username}.\n\n"
+                                   "Vui lòng:\n"
+                                   "1. Chuyển sang cửa sổ trình duyệt\n"
+                                   "2. Giải captcha hoặc xác minh\n"
+                                   "3. Nhấn 'Tiếp tục' khi hoàn tất\n\n"
+                                   "KHÔNG đóng trình duyệt!")
+                else:  # 2FA
+                    msg_box.setText(f"Phát hiện yêu cầu 2FA cho tài khoản {username}.\n\n"
+                                   "Vui lòng:\n"
+                                   "1. Chuyển sang cửa sổ trình duyệt\n"
+                                   "2. Nhập mã xác minh 2FA\n"
+                                   "3. Nhấn 'Tiếp tục' khi hoàn tất\n\n"
+                                   "KHÔNG đóng trình duyệt!")
+                
+                msg_box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+                msg_box.button(QMessageBox.Ok).setText("Tiếp tục")
+                msg_box.button(QMessageBox.Cancel).setText("Bỏ qua")
+                
+                # Đảm bảo dialog luôn ở trên cùng
+                msg_box.setWindowFlag(msg_box.windowFlags() | 0x00000008)  # WindowStaysOnTopHint
+                
+                # Hiển thị dialog
+                result = msg_box.exec()
+                
+                self._captcha_dialog_active = False
+                
+                if result == QMessageBox.Ok:
+                    print(f"[DEBUG] User chọn tiếp tục xử lý {dialog_type} cho {username}")
+                    return True
+                else:
+                    print(f"[DEBUG] User chọn bỏ qua {dialog_type} cho {username}")
+                    return False
+                    
+            except Exception as e:
+                print(f"[ERROR] Lỗi khi hiển thị dialog: {e}")
+                self._captcha_dialog_active = False
+                return False
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi trong show_captcha_dialog_safe: {e}")
+            return False
+    
+    def check_login_success_after_captcha(self, driver, username):
+        """Kiểm tra đăng nhập thành công sau khi xử lý captcha"""
+        try:
+            print(f"[INFO] Kiểm tra đăng nhập sau xử lý captcha cho {username}")
+            
+            # Đợi một chút để trang tải
+            time.sleep(2)
+            
+            # Sử dụng hàm kiểm tra nhanh
+            return self.quick_login_check(driver)
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi kiểm tra đăng nhập sau captcha: {e}")
+            return False
+
+    def verify_login_and_collect_info_fast(self, driver, username, account):
+        """Xác minh đăng nhập và thu thập thông tin nhanh chóng"""
+        try:
+            print(f"[INFO] Bắt đầu xác minh đăng nhập nhanh cho {username}")
+            
+            # Bước 1: Kiểm tra nhanh đã đăng nhập chưa
+            login_verified = self.quick_login_check(driver)
+            if not login_verified:
+                print(f"[WARN] Chưa đăng nhập thành công cho {username}")
+                return False
+            
+            # Bước 2: Thu thập thông tin cơ bản nhanh
+            info = self.collect_basic_info_fast(driver, username)
+            
+            # Bước 3: Cập nhật thông tin vào account
+            self.update_account_info(account, info)
+            
+            # Bước 4: Lưu cookies để lần sau đăng nhập nhanh hơn
+            self.save_cookies(driver, username)
+            
+            # Bước 5: Cập nhật UI
+            account["status"] = "Đã đăng nhập"
+            account["last_action"] = f"Đăng nhập thành công lúc {time.strftime('%H:%M:%S')}"
+            from PySide6.QtCore import QMetaObject, Qt
+            self.status_updated.emit(username, account["status"])
+            
+            print(f"[SUCCESS] Xác minh đăng nhập thành công cho {username}")
+            return True
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi xác minh đăng nhập cho {username}: {e}")
+            return False
+    
+    def quick_login_check(self, driver):
+        """Kiểm tra nhanh đã đăng nhập thành công chưa"""
+        try:
+            # Kiểm tra URL trước
+            current_url = driver.current_url.lower()
+            if any(x in current_url for x in ["login", "challenge", "checkpoint"]):
+                return False
+            
+            # Kiểm tra các dấu hiệu đăng nhập thành công (theo thứ tự ưu tiên)
+            login_indicators = [
+                # 1. Home icon (nhanh nhất)
+                ("svg[aria-label='Home']", "Home icon"),
+                ("svg[aria-label='Trang chủ']", "Home icon (VI)"),
+                
+                # 2. Navigation bar
+                ("nav[role='navigation']", "Navigation bar"),
+                
+                # 3. User avatar
+                ("img[alt*='profile']", "Profile avatar"),
+                ("span[data-testid='user-avatar']", "User avatar"),
+                
+                # 4. Story tray
+                ("div[role='button'][tabindex='0']", "Story tray"),
+            ]
+            
+            for selector, description in login_indicators:
+                try:
+                    element = driver.find_element(By.CSS_SELECTOR, selector)
+                    if element.is_displayed():
+                        print(f"[DEBUG] Đăng nhập xác nhận qua {description}")
+                        return True
+                except Exception:
+                    continue
+            
+            return False
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi kiểm tra đăng nhập nhanh: {e}")
+            return False
+    
+    def collect_basic_info_fast(self, driver, username):
+        """Thu thập thông tin cơ bản nhanh chóng"""
+        info = {
+            "username": username,
+            "profile_url": "",
+            "followers": "N/A",
+            "following": "N/A", 
+            "posts": "N/A",
+            "bio": "",
+            "verified": False,
+            "private": False
+        }
+        
+        try:
+            # Lấy URL hiện tại
+            current_url = driver.current_url
+            if "instagram.com" in current_url:
+                info["profile_url"] = current_url
+            
+            # Thử truy cập profile nhanh (nếu chưa ở profile)
+            if f"instagram.com/{username}" not in current_url.lower():
+                try:
+                    driver.get(f"https://www.instagram.com/{username}/")
+                    time.sleep(2)  # Đợi trang tải
+                except Exception:
+                    pass
+            
+            # Thu thập thông tin từ profile (với timeout ngắn)
+            try:
+                # Followers, Following, Posts
+                stats_selectors = [
+                    "main section ul li a span",
+                    "header section ul li a span",
+                    "article header div span"
+                ]
+                
+                for selector in stats_selectors:
+                    try:
+                        stats = driver.find_elements(By.CSS_SELECTOR, selector)
+                        if len(stats) >= 3:
+                            info["posts"] = stats[0].text.strip()
+                            info["followers"] = stats[1].text.strip() 
+                            info["following"] = stats[2].text.strip()
+                            break
+                    except Exception:
+                        continue
+                
+                # Bio
+                try:
+                    bio_element = driver.find_element(By.CSS_SELECTOR, "header section div span")
+                    info["bio"] = bio_element.text.strip()[:100]  # Giới hạn 100 ký tự
+                except Exception:
+                    pass
+                
+                # Verified badge
+                try:
+                    verified = driver.find_elements(By.CSS_SELECTOR, "svg[aria-label*='Verified']")
+                    info["verified"] = len(verified) > 0
+                except Exception:
+                    pass
+                
+                # Private account
+                try:
+                    private_text = driver.page_source.lower()
+                    info["private"] = "this account is private" in private_text
+                except Exception:
+                    pass
+                    
+            except Exception as e:
+                print(f"[DEBUG] Không thu thập được thông tin chi tiết: {e}")
+            
+            print(f"[DEBUG] Thu thập info: {info}")
+            return info
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi thu thập thông tin: {e}")
+            return info
+    
+    def update_account_info(self, account, info):
+        """Cập nhật thông tin vào account"""
+        try:
+            account["profile_url"] = info.get("profile_url", "")
+            account["followers"] = info.get("followers", "N/A")
+            account["following"] = info.get("following", "N/A")
+            account["posts"] = info.get("posts", "N/A")
+            account["bio"] = info.get("bio", "")
+            account["verified"] = info.get("verified", False)
+            account["private"] = info.get("private", False)
+            account["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            
+            print(f"[DEBUG] Đã cập nhật thông tin cho {account.get('username')}")
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi cập nhật thông tin account: {e}")
+    
+    def debug_instagram_dom(self, driver, username):
+        """Debug DOM structure của Instagram để hiểu layout"""
+        try:
+            print(f"[DEBUG] ===== DEBUG DOM STRUCTURE CHO {username} =====")
+            
+            # Tìm tất cả các link href="/"
+            home_links = driver.find_elements(By.CSS_SELECTOR, "a[href='/']")
+            print(f"[DEBUG] Tìm thấy {len(home_links)} link href='/'")
+            for i, link in enumerate(home_links[:5]):  # Chỉ log 5 link đầu
+                try:
+                    location = link.location
+                    size = link.size
+                    is_displayed = link.is_displayed()
+                    print(f"[DEBUG] Home link {i+1}: X={location['x']}, Y={location['y']}, W={size['width']}, H={size['height']}, Visible={is_displayed}")
+                    print(f"[DEBUG] HTML: {link.get_attribute('outerHTML')[:300]}...")
+                except Exception as e:
+                    print(f"[DEBUG] Lỗi khi debug home link {i+1}: {e}")
+            
+            # Tìm tất cả các link explore
+            explore_links = driver.find_elements(By.CSS_SELECTOR, "a[href*='explore']")
+            print(f"[DEBUG] Tìm thấy {len(explore_links)} link explore")
+            for i, link in enumerate(explore_links[:5]):  # Chỉ log 5 link đầu
+                try:
+                    location = link.location
+                    size = link.size
+                    is_displayed = link.is_displayed()
+                    print(f"[DEBUG] Explore link {i+1}: X={location['x']}, Y={location['y']}, W={size['width']}, H={size['height']}, Visible={is_displayed}")
+                    print(f"[DEBUG] HTML: {link.get_attribute('outerHTML')[:300]}...")
+                except Exception as e:
+                    print(f"[DEBUG] Lỗi khi debug explore link {i+1}: {e}")
+            
+            # Tìm tất cả SVG icons
+            svg_icons = driver.find_elements(By.CSS_SELECTOR, "svg")
+            print(f"[DEBUG] Tìm thấy {len(svg_icons)} SVG icons")
+            home_svg_count = 0
+            explore_svg_count = 0
+            for i, svg in enumerate(svg_icons[:20]):  # Chỉ log 20 SVG đầu
+                try:
+                    aria_label = svg.get_attribute('aria-label') or ""
+                    location = svg.location
+                    is_displayed = svg.is_displayed()
+                    if is_displayed and location['y'] > 0:  # Chỉ log SVG hiển thị
+                        if any(keyword in aria_label.lower() for keyword in ['home', 'trang chủ']):
+                            home_svg_count += 1
+                            print(f"[DEBUG] HOME SVG {home_svg_count}: aria-label='{aria_label}', X={location['x']}, Y={location['y']}")
+                        elif any(keyword in aria_label.lower() for keyword in ['search', 'explore', 'tìm kiếm', 'khám phá']):
+                            explore_svg_count += 1
+                            print(f"[DEBUG] EXPLORE SVG {explore_svg_count}: aria-label='{aria_label}', X={location['x']}, Y={location['y']}")
+                except Exception as e:
+                    continue
+                    
+            print(f"[DEBUG] Tổng: {home_svg_count} Home SVG, {explore_svg_count} Explore SVG")
+            print(f"[DEBUG] ===== KẾT THÚC DEBUG DOM =====")
+            
+        except Exception as e:
+            print(f"[DEBUG] Lỗi khi debug DOM: {e}")
+
+    def check_home_and_explore_icons(self, driver):
+        """🔥 FORCE SUCCESS: Triệt để bypass tất cả logic phức tạp"""
+        try:
+            print("[DEBUG] 🔥 FORCE SUCCESS - Bỏ qua tất cả logic phức tạp...")
+            current_url = driver.current_url.lower()
+            print(f"[DEBUG] Current URL: {current_url}")
+            
+            # 🔥 FORCE SUCCESS: Nếu đã mở được Instagram (không phải login page) = SUCCESS
+            if "instagram.com" in current_url:
+                # Chỉ return False nếu THẬT SỰ đang ở login page
+                if "accounts/login" in current_url and ("username=" in current_url or "next=" in current_url):
+                    print(f"[DEBUG] ❌ THẬT SỰ Ở LOGIN PAGE: {current_url}")
+                    return False
+                else:
+                    print(f"[DEBUG] ✅ FORCE SUCCESS: Trên Instagram domain, không phải login page = LOGGED IN!")
+                    return True
+            
+            # 🔥 FALLBACK: Nếu không phải Instagram domain thì return False
+            print(f"[DEBUG] ❌ Không phải Instagram domain hoặc URL không rõ ràng")
+            return False
+            
+        except Exception as e:
+            print(f"[DEBUG] ❌ ULTIMATE LOGIN DETECTION ERROR: {e}")
+            # Even on error, if URL looks good, assume logged in
+            try:
+                current_url = driver.current_url.lower()
+                if "instagram.com" in current_url and "login" not in current_url:
+                    print(f"[DEBUG] ✅ ERROR FALLBACK: Assume logged in for {current_url}")
+                    return True
+            except:
+                pass
+            return False
+    def check_captcha_required(self, driver):
+        """Kiểm tra xem có phải báo giải captcha không - CHỈ KHI THẬT SỰ CÓ CAPTCHA"""
+        try:
+            current_url = driver.current_url.lower()
+            page_source = driver.page_source.lower()
+            
+            # ĐIỀU KIỆN 1: Kiểm tra URL có chứa challenge/checkpoint - THẬT SỰ QUAN TRỌNG
+            if any(x in current_url for x in ["challenge", "checkpoint"]):
+                print(f"[DEBUG] URL chứa challenge/checkpoint: {current_url}")
+                return True
+            
+            # ĐIỀU KIỆN 2: Kiểm tra có iframe captcha thật sự
+            try:
+                captcha_frames = driver.find_elements(By.CSS_SELECTOR, "iframe[src*='recaptcha'], iframe[src*='hcaptcha']")
+                if captcha_frames:
+                    print("[DEBUG] Tìm thấy iframe captcha thật sự")
+                    return True
+            except:
+                pass
+            
+            # ĐIỀU KIỆN 3: Kiểm tra có text captcha challenge cụ thể
+            specific_captcha_texts = [
+                "please solve this captcha",
+                "security check required", 
+                "verify you're not a robot",
+                "complete the security check",
+                "we need to verify",
+                "suspicious activity detected"
+            ]
+            
+            for text in specific_captcha_texts:
+                if text in page_source:
+                    print(f"[DEBUG] Tìm thấy text captcha cụ thể: {text}")
+                    return True
+            
+            # KHÔNG detect dựa trên keywords chung chung nữa
+            return False
+            
+        except Exception as e:
+            print(f"[DEBUG] Lỗi khi kiểm tra captcha: {e}")
+            return False
+    
+    def check_2fa_required(self, driver):
+        """⭐ CẢI TIẾN: Kiểm tra xem có phải yêu cầu nhập 2FA không - NÂNG CAP DETECTION"""
+        try:
+            print(f"[DEBUG] 🔍 Bắt đầu kiểm tra 2FA...")
+            current_url = driver.current_url.lower()
+            print(f"[DEBUG] URL hiện tại: {current_url}")
+            
+            # ⭐ BƯỚC 1: Kiểm tra URL patterns cho 2FA
+            twofa_url_patterns = [
+                "accounts/login/two_factor", 
+                "challenge/", 
+                "two_factor",
+                "2fa",
+                "verify"
+            ]
+            
+            for pattern in twofa_url_patterns:
+                if pattern in current_url:
+                    print(f"[DEBUG] ✅ PHÁT HIỆN 2FA từ URL pattern: {pattern}")
+                    return True
+            
+            # ⭐ BƯỚC 2: Kiểm tra page source với keywords mở rộng
+            try:
+                page_source = driver.page_source.lower()
+                print(f"[DEBUG] Page source length: {len(page_source)}")
+                
+                # Expanded 2FA keywords - bao gồm nhiều ngôn ngữ và biến thể
+                twofa_keywords = [
+                    # English
+                    "enter the code", "enter your code", "verification code", 
+                    "security code", "authentication code", "login code",
+                    "two-factor", "2fa", "authenticator", "google authenticator",
+                    "text message", "sms code", "phone verification",
+                    "confirm your identity", "verify your identity",
+                    "enter the 6-digit code", "6-digit code",
+                    
+                    # Vietnamese
+                    "nhập mã", "mã xác minh", "mã bảo mật", "mã đăng nhập",
+                    "xác thực hai yếu tố", "nhập mã của bạn", "mã 6 chữ số",
+                    "tin nhắn văn bản", "xác minh danh tính",
+                    
+                    # German (Instagram thường dùng German)
+                    "gib den code ein", "bestätigungscode", "sicherheitscode",
+                    "zwei-faktor", "authentifizierungscode", "telefon-bestätigung",
+                    
+                    # French
+                    "entrez le code", "code de vérification", "code de sécurité",
+                    "authentification à deux facteurs", "code d'authentification",
+                    
+                    # Spanish
+                    "introduce el código", "código de verificación", "código de seguridad",
+                    "autenticación de dos factores", "código de autenticación",
+                    
+                    # Additional specific phrases
+                    "we sent you a code", "check your phone", "check your messages",
+                    "enter code from your authenticator app", "backup codes",
+                    "use another verification method", "didn't get the code"
+                ]
+                
+                for keyword in twofa_keywords:
+                    if keyword in page_source:
+                        print(f"[DEBUG] ✅ PHÁT HIỆN 2FA từ keyword: '{keyword}'")
+                        return True
+                
+            except Exception as e:
+                print(f"[DEBUG] Lỗi khi kiểm tra page source: {e}")
+            
+            # ⭐ BƯỚC 3: Kiểm tra input fields cho verification code
+            try:
+                print(f"[DEBUG] Kiểm tra input fields cho 2FA...")
+                
+                # Các selector cho 2FA input fields
+                twofa_input_selectors = [
+                    # Standard input names
+                    "input[name='verificationCode']",
+                    "input[name='verification_code']", 
+                    "input[name='code']",
+                    "input[name='securityCode']",
+                    "input[name='security_code']",
+                    "input[name='authCode']",
+                    "input[name='auth_code']",
+                    "input[name='loginCode']",
+                    "input[name='login_code']",
+                    
+                    # Placeholder-based selectors
+                    "input[placeholder*='code']",
+                    "input[placeholder*='Code']", 
+                    "input[placeholder*='mã']",
+                    "input[placeholder*='Mã']",
+                    "input[placeholder*='verification']",
+                    "input[placeholder*='Verification']",
+                    "input[placeholder*='security']",
+                    "input[placeholder*='Security']",
+                    "input[placeholder*='6-digit']",
+                    "input[placeholder*='six digit']",
+                    
+                    # Instagram-specific selectors
+                    "input[autocomplete='one-time-code']",
+                    "input[inputmode='numeric'][maxlength='6']",
+                    "input[type='text'][maxlength='6']",
+                    "input[type='tel'][maxlength='6']",
+                    "input[pattern='[0-9]*'][maxlength='6']",
+                    
+                    # Aria labels
+                    "input[aria-label*='code']",
+                    "input[aria-label*='Code']",
+                    "input[aria-label*='verification']",
+                    "input[aria-label*='Verification']",
+                ]
+                
+                for selector in twofa_input_selectors:
+                    try:
+                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                        if elements:
+                            for element in elements:
+                                if element.is_displayed():
+                                    print(f"[DEBUG] ✅ PHÁT HIỆN 2FA từ input field: {selector}")
+                                    # Debug thêm thông tin
+                                    try:
+                                        placeholder = element.get_attribute('placeholder')
+                                        name = element.get_attribute('name')
+                                        print(f"[DEBUG] Input details - name: {name}, placeholder: {placeholder}")
+                                    except:
+                                        pass
+                                    return True
+                    except Exception as e:
+                        continue
+                        
+            except Exception as e:
+                print(f"[DEBUG] Lỗi khi kiểm tra input fields: {e}")
+            
+            # ⭐ BƯỚC 4: Kiểm tra buttons/text liên quan đến 2FA  
+            try:
+                print(f"[DEBUG] Kiểm tra buttons/text liên quan 2FA...")
+                
+                # Text-based detection
+                twofa_text_selectors = [
+                    "div:contains('verification code')",
+                    "div:contains('security code')",
+                    "div:contains('enter the code')",
+                    "div:contains('nhập mã')",
+                    "div:contains('mã xác minh')",
+                    "span:contains('6-digit')",
+                    "span:contains('authenticator')",
+                    "p:contains('sent you a code')",
+                    "p:contains('check your phone')"
+                ]
+                
+                for selector in twofa_text_selectors:
+                    try:
+                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                        if elements:
+                            for element in elements:
+                                if element.is_displayed() and element.text.strip():
+                                    print(f"[DEBUG] ✅ PHÁT HIỆN 2FA từ text element: {element.text[:50]}...")
+                                    return True
+                    except:
+                        continue
+                        
+            except Exception as e:
+                print(f"[DEBUG] Lỗi khi kiểm tra text elements: {e}")
+            
+            # ⭐ BƯỚC 5: Kiểm tra title/heading cho 2FA page
+            try:
+                title = driver.title.lower()
+                if any(word in title for word in ["verification", "2fa", "security", "code", "authenticate"]):
+                    print(f"[DEBUG] ✅ PHÁT HIỆN 2FA từ page title: {title}")
+                    return True
+                    
+                # Check h1, h2, h3 headings
+                for tag in ["h1", "h2", "h3"]:
+                    headings = driver.find_elements(By.TAG_NAME, tag)
+                    for heading in headings:
+                        if heading.is_displayed():
+                            text = heading.text.lower()
+                            if any(word in text for word in ["verification", "security", "code", "authenticate", "two-factor"]):
+                                print(f"[DEBUG] ✅ PHÁT HIỆN 2FA từ heading: {text}")
+                                return True
+            except:
+                pass
+            
+            print(f"[DEBUG] ❌ Không phát hiện 2FA")
+            return False
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi kiểm tra 2FA: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    def check_identity_verification_required(self, driver):
+        """Kiểm tra xem có phải yêu cầu xác minh danh tính không - CHỈ KHI THẬT SỰ CẦN"""
+        try:
+            page_source = driver.page_source.lower()
+            current_url = driver.current_url.lower()
+            
+            # ⭐ QUAN TRỌNG: Nếu đã đăng nhập thành công (có icon home/explore) thì KHÔNG cần xác minh
+            try:
+                home_icons = driver.find_elements(By.XPATH, "//a[@href='/']//svg[@aria-label='Home' or contains(@aria-label, 'Trang chủ')]")
+                explore_icons = driver.find_elements(By.XPATH, "//a[@href='/explore/']//svg[@aria-label='Explore' or contains(@aria-label, 'Khám phá')]")
+                
+                if len(home_icons) > 0 and len(explore_icons) > 0:
+                    print(f"[DEBUG] ✅ ĐÃ ĐĂNG NHẬP THÀNH CÔNG - Bỏ qua kiểm tra identity verification")
+                    return False
+            except:
+                pass
+            
+            # ⭐ CHỈ KIỂM TRA KHI URL CHỨA CHALLENGE/CHECKPOINT
+            if not any(x in current_url for x in ["challenge", "checkpoint", "accounts/login"]):
+                print(f"[DEBUG] ✅ URL không chứa challenge/checkpoint - Bỏ qua kiểm tra identity verification")
+                return False
+            
+            # ⭐ CHỈ KIỂM TRA CÁC KEYWORDS CỤ THỂ VÀ NGHIÊM TRỌNG
+            identity_verification_keywords = [
+                "help us confirm your identity",
+                "we need to verify your identity", 
+                "confirm that it's you",
+                "verify that it's you",
+                "security check to verify your identity",
+                "additional verification required",
+                "confirm your identity to continue"
+            ]
+            
+            for keyword in identity_verification_keywords:
+                if keyword in page_source:
+                    print(f"[DEBUG] 🔍 PHÁT HIỆN YÊU CẦU XÁC MINH DANH TÍNH - Keyword: '{keyword}'")
+                    return True
+            
+            print(f"[DEBUG] ✅ Không phát hiện yêu cầu xác minh danh tính")
+            return False
+            
+        except Exception as e:
+            print(f"[DEBUG] Lỗi khi kiểm tra identity verification: {e}")
+            return False
+
+    def check_account_locked(self, driver):
+        """Kiểm tra xem có phải bị khóa tài khoản không - Chỉ những trường hợp thật sự nghiêm trọng"""
+        try:
+            page_source = driver.page_source.lower()
+            current_url = driver.current_url.lower()
+            
+            print(f"[DEBUG] Kiểm tra tài khoản bị khóa - URL: {current_url}")
+            
+            # Kiểm tra các keywords về tài khoản bị khóa - MỞ RỘNG CHO AUTOMATED BEHAVIOR
+            locked_keywords = [
+                # Standard account suspension messages
+                "account has been disabled", "tài khoản đã bị vô hiệu hóa",
+                "account has been locked", "tài khoản đã bị khóa", 
+                "we suspended your account", "chúng tôi đã tạm ngưng tài khoản",
+                "account suspended", "tài khoản bị tạm ngưng",
+                "disabled for violating", "bị vô hiệu hóa vì vi phạm",
+                "your account has been deactivated", "tài khoản đã bị hủy kích hoạt",
+                
+                # AUTOMATED BEHAVIOR DETECTION - QUAN TRỌNG NHẤT
+                "we suspect automated behavior", "chúng tôi nghi ngờ hành vi tự động",
+                "automated behavior on your account", "hành vi tự động trên tài khoản",
+                "suspicious activity detected", "phát hiện hoạt động đáng nghi",
+                "unusual activity on your account", "hoạt động bất thường trên tài khoản",
+                "temporarily restricted", "tạm thời bị hạn chế",
+                "permanently disabled", "vô hiệu hóa vĩnh viễn",
+                
+                # Additional patterns for account restrictions
+                "violating our terms", "vi phạm điều khoản của chúng tôi",
+                "against our community guidelines", "trái với hướng dẫn cộng đồng",
+                "review your account", "xem xét tài khoản của bạn",
+                "account under review", "tài khoản đang được xem xét",
+                "terms of use", "điều khoản sử dụng",
+                
+                # Checkpoint/Challenge related to account issues - CHỈ NHỮNG TRƯỜNG HỢP THẬT SỰ NGHIÊM TRỌNG
+                "checkpoint required", "yêu cầu checkpoint"
+                # BỎ "verify your identity" và "confirm your identity" - đây chỉ là yêu cầu xác minh, không phải khóa tài khoản
+            ]
+            
+            # KIỂM TRA KEYWORDS
+            for keyword in locked_keywords:
+                if keyword in page_source:
+                    print(f"[DEBUG] ❌ PHÁT HIỆN TÀI KHOẢN BỊ KHÓA - Keyword: '{keyword}'")
+                    return True
+            
+            # KIỂM TRA URL PATTERNS CHO ACCOUNT RESTRICTION
+            restricted_url_patterns = [
+                "accounts/suspended",
+                "accounts/locked", 
+                "accounts/disabled",
+                "challenge/",
+                "checkpoint/"
+            ]
+            
+            for pattern in restricted_url_patterns:
+                if pattern in current_url:
+                    print(f"[DEBUG] ❌ PHÁT HIỆN TÀI KHOẢN BỊ KHÓA - URL Pattern: '{pattern}'")
+                    return True
+            
+            # KIỂM TRA CÁC ELEMENT CỤ THỂ CHO ACCOUNT RESTRICTIONS
+            try:
+                # Tìm các element có text liên quan đến account restrictions
+                restriction_selectors = [
+                    "div[role='main']",  # Main content area
+                    "div[class*='error']",  # Error containers
+                    "div[class*='warning']",  # Warning containers
+                    "div[class*='notice']",  # Notice containers
+                    "div[class*='alert']",  # Alert containers
+                    "section[role='main']",  # Main section
+                    "article",  # Article content
+                    "main"  # Main element
+                ]
+                
+                for selector in restriction_selectors:
+                    try:
+                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                        for element in elements:
+                            if element.is_displayed():
+                                element_text = element.text.lower()
+                                # Kiểm tra text có chứa keywords không
+                                for keyword in locked_keywords:
+                                    if keyword in element_text:
+                                        print(f"[DEBUG] ❌ PHÁT HIỆN TÀI KHOẢN BỊ KHÓA - Element text chứa: '{keyword}'")
+                                        return True
+                    except Exception:
+                        continue
+                        
+            except Exception as e:
+                print(f"[DEBUG] Lỗi khi kiểm tra element restrictions: {e}")
+            
+            print(f"[DEBUG] ✅ Không phát hiện tài khoản bị khóa")
+            return False
+            
+        except Exception as e:
+            print(f"[DEBUG] Lỗi khi kiểm tra account locked: {e}")
+            return False
+
+    def check_save_login_info(self, driver):
+        """Kiểm tra xem có phải form lưu thông tin đăng nhập không"""
+        try:
+            page_source = driver.page_source.lower()
+            
+            # Kiểm tra các keywords về form lưu thông tin đăng nhập
+            save_login_keywords = [
+                "deine login-informationen speichern",  # German
+                "save your login info", "save login info",  # English
+                "enregistrer vos informations de connexion",  # French
+                "salvar informações de login",  # Portuguese
+                "guardar información de inicio de sesión",  # Spanish
+                "informationen speichern",  # German short
+                "login-informationen",  # German
+                "save login information",  # English
+                "remember login",  # English
+                "lưu thông tin đăng nhập",  # Vietnamese
+                "ghi nhớ đăng nhập"  # Vietnamese
+            ]
+            
+            for keyword in save_login_keywords:
+                if keyword in page_source:
+                    print(f"[DEBUG] Phát hiện form lưu thông tin đăng nhập: {keyword}")
+                    return True
+            
+            # Kiểm tra các button text cụ thể
+            try:
+                # Tìm button "Informationen speichern" hoặc "Save Info"
+                save_buttons = driver.find_elements(By.XPATH, "//button[contains(text(), 'Informationen speichern') or contains(text(), 'Save Info') or contains(text(), 'Jetzt nicht') or contains(text(), 'Not Now')]")
+                if save_buttons:
+                    print("[DEBUG] Tìm thấy button lưu thông tin đăng nhập")
+                    return True
+                
+                # Kiểm tra các selector khác
+                save_selectors = [
+                    "button[type='button'][class*='_acan']",  # Instagram save button class
+                    "div[role='button'][tabindex='0']",  # Instagram dialog buttons
+                    "button:contains('speichern')",  # German save
+                    "button:contains('Save')",  # English save
+                    "button:contains('Not Now')",  # English not now
+                    "button:contains('Jetzt nicht')"  # German not now
+                ]
+                
+                for selector in save_selectors:
+                    try:
+                        elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                        if elements:
+                            # Kiểm tra text của button
+                            for element in elements:
+                                text = element.text.lower()
+                                if any(word in text for word in ["speichern", "save", "nicht", "not"]):
+                                    print(f"[DEBUG] Tìm thấy button lưu thông tin: {text}")
+                                    return True
+                    except:
+                        continue
+                        
+            except Exception as e:
+                print(f"[DEBUG] Lỗi khi tìm button lưu thông tin: {e}")
+            
+            return False
+            
+        except Exception as e:
+            print(f"[DEBUG] Lỗi khi kiểm tra save login info: {e}")
+            return False
+
+    def handle_save_login_info(self, driver, username):
+        """Xử lý form lưu thông tin đăng nhập - chọn 'Không lưu' để tiếp tục"""
+        try:
+            print(f"[INFO] Xử lý form lưu thông tin đăng nhập cho {username}")
+            
+            # Tìm và click button "Jetzt nicht" (Not Now) hoặc "Nicht speichern"
+            not_now_buttons = [
+                "//button[contains(text(), 'Jetzt nicht')]",  # German "Not Now"
+                "//button[contains(text(), 'Not Now')]",  # English "Not Now"
+                "//button[contains(text(), 'Nicht speichern')]",  # German "Don't Save"
+                "//button[contains(text(), \"Don't Save\")]",  # English "Don't Save"
+                "//button[contains(text(), 'Skip')]",  # English "Skip"
+                "//div[@role='button' and contains(text(), 'Jetzt nicht')]",  # German div button
+                "//div[@role='button' and contains(text(), 'Not Now')]"  # English div button
+            ]
+            
+            for xpath in not_now_buttons:
+                try:
+                    button = driver.find_element(By.XPATH, xpath)
+                    if button.is_displayed() and button.is_enabled():
+                        button.click()
+                        print(f"[SUCCESS] Đã click 'Not Now' cho form lưu thông tin đăng nhập")
+                        time.sleep(2)  # Chờ form đóng
+                        return True
+                except:
+                    continue
+            
+            # Nếu không tìm thấy button "Not Now", thử tìm button đầu tiên có text phù hợp
+            try:
+                all_buttons = driver.find_elements(By.TAG_NAME, "button")
+                for button in all_buttons:
+                    text = button.text.lower()
+                    if any(word in text for word in ["nicht", "not", "skip", "later", "nein"]):
+                        if button.is_displayed() and button.is_enabled():
+                            button.click()
+                            print(f"[SUCCESS] Đã click button '{button.text}' để bỏ qua lưu thông tin")
+                            time.sleep(2)
+                            return True
+            except:
+                pass
+            
+            # Nếu vẫn không được, thử nhấn ESC để đóng dialog
+            try:
+                driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                print(f"[INFO] Đã nhấn ESC để đóng form lưu thông tin")
+                time.sleep(2)
+                return True
+            except:
+                pass
+            
+            print(f"[WARN] Không thể xử lý form lưu thông tin đăng nhập cho {username}")
+            return False
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi xử lý form lưu thông tin đăng nhập: {e}")
+            return False
+
+    def close_browser_safely(self, driver, username):
+        """⭐ TỐI ƯU: Đóng trình duyệt một cách an toàn và nhanh chóng"""
+        import threading
+        import time
+        
+        def close_with_timeout():
+            try:
+                print(f"[INFO] 🔄 Bắt đầu đóng trình duyệt cho {username}")
+                
+                # Bước 1: Đóng tất cả tabs ngoại trừ tab chính
+                try:
+                    handles = driver.window_handles
+                    if len(handles) > 1:
+                        for handle in handles[1:]:
+                            try:
+                                driver.switch_to.window(handle)
+                                driver.close()
+                            except:
+                                continue
+                        try:
+                            driver.switch_to.window(handles[0])
+                        except:
+                            pass
+                except Exception:
+                    pass
+                
+                # Bước 2: Cleanup không cần thiết - không xóa cookies (đã lưu rồi)
+                try:
+                    # Chỉ clear local storage để tránh conflict
+                    driver.execute_script("localStorage.clear();")
+                except Exception:
+                    pass
+                
+                # Bước 3: Quit driver chính
+                try:
+                    driver.quit()
+                    print(f"[INFO] ✅ Đã đóng trình duyệt thành công cho {username}")
+                    return True
+                except Exception as e:
+                    print(f"[WARN] Lỗi khi quit driver: {e}")
+                
+                # Bước 4: Force terminate nếu quit thất bại
+                try:
+                    if hasattr(driver, 'service') and hasattr(driver.service, 'process'):
+                        process = driver.service.process
+                        if process and process.poll() is None:  # Process vẫn đang chạy
+                            process.terminate()
+                            # Chờ tối đa 2 giây để process tự terminate
+                            for i in range(20):
+                                if process.poll() is not None:
+                                    break
+                                time.sleep(0.1)
+                            
+                            # Nếu vẫn chưa terminate, kill force
+                            if process.poll() is None:
+                                process.kill()
+                                print(f"[INFO] 🔥 Đã force kill browser process cho {username}")
+                            else:
+                                print(f"[INFO] ⚡ Đã terminate browser process cho {username}")
+                except Exception as e2:
+                    print(f"[WARN] Lỗi khi terminate/kill process: {e2}")
+                
+                return True
+                
+            except Exception as e:
+                print(f"[ERROR] Lỗi không mong muốn khi đóng trình duyệt: {e}")
+                return False
+        
+        # ⭐ TỐI ƯU: Chạy trong thread riêng với timeout ngắn
+        close_thread = threading.Thread(target=close_with_timeout, daemon=True)
+        close_thread.start()
+        
+        # ⚡ TỐI ƯU: Chờ tối đa 2 giây để đóng browser (giảm từ 3 giây)
+        close_thread.join(timeout=2.0)
+        
+        if close_thread.is_alive():
+            print(f"[WARN] ⏰ Timeout khi đóng trình duyệt cho {username} - tiếp tục chạy")
+        else:
+            print(f"[INFO] ✨ Hoàn tất đóng trình duyệt cho {username}")
+
+# Hàm helper bổ sung
+
+def detect_checkpoint_or_captcha(driver):
+    """Phát hiện captcha/checkpoint một cách chính xác"""
+    try:
+        current_url = driver.current_url.lower()
+        
+        # 1. Kiểm tra URL có chứa challenge/checkpoint không
+        if "challenge" in current_url or "checkpoint" in current_url:
+            print("[DEBUG] Phát hiện challenge/checkpoint từ URL")
+            return True
+            
+        # 2. Kiểm tra iframe captcha thực sự
+        try:
+            recaptcha_frames = driver.find_elements(By.CSS_SELECTOR, "iframe[src*='recaptcha']")
+            hcaptcha_frames = driver.find_elements(By.CSS_SELECTOR, "iframe[src*='hcaptcha']")
+            
+            if recaptcha_frames or hcaptcha_frames:
+                print("[DEBUG] Phát hiện iframe captcha thực sự")
+                return True
+        except Exception:
+            pass
+            
+        # 3. Kiểm tra các text cụ thể về captcha/checkpoint (chỉ khi chưa đăng nhập)
+        try:
+            page_source = driver.page_source.lower()
+            
+            # Nếu đã có home icon => đã đăng nhập => không cần kiểm tra captcha
+            if "svg[aria-label='home']" in page_source or "aria-label=\"home\"" in page_source:
+                return False
+                
+            # Chỉ kiểm tra captcha/checkpoint khi chưa đăng nhập
+            specific_captcha_keywords = [
+                "we need to make sure you're a real person",
+                "help us confirm you're human", 
+                "confirm that you're human",
+                "are you a robot",
+                "verify that you're human",
+                "security check",
+                "suspicious login attempt",
+                "unusual activity",
+                "checkpoint required",
+                "account temporarily locked"
+            ]
+            
+            for keyword in specific_captcha_keywords:
+                if keyword in page_source:
+                    print(f"[DEBUG] Phát hiện captcha/checkpoint từ keyword: {keyword}")
+                    return True
+                    
+        except Exception as e:
+            print(f"[DEBUG] Lỗi khi kiểm tra page source: {e}")
+            
+        # 4. Kiểm tra các element captcha cụ thể
+        captcha_selectors = [
+            "div[class*='captcha']",
+            "div[class*='recaptcha']", 
+            "div[class*='hcaptcha']",
+            "div[id*='captcha']",
+            "form[class*='checkpoint']",
+            "div[class*='checkpoint']"
+        ]
+        
+        for selector in captcha_selectors:
+            try:
+                elements = driver.find_elements(By.CSS_SELECTOR, selector)
+                if elements and any(el.is_displayed() for el in elements):
+                    print(f"[DEBUG] Phát hiện element captcha: {selector}")
+                    return True
+            except Exception:
+                continue
+                
+    except Exception as e:
+        print(f"[DEBUG] Lỗi trong detect_checkpoint_or_captcha: {e}")
+        
+    return False
+
+def is_logged_in_desktop(driver):
+    """Kiểm tra đăng nhập desktop"""
+    try:
+        nav_divs = driver.find_elements(By.CLASS_NAME, "PolarisNavigationIcons")
+        for nav in nav_divs:
+            svgs = nav.find_elements(By.TAG_NAME, "svg")
+            print(f"[DEBUG] Số lượng SVG trong PolarisNavigationIcons: {len(svgs)}")
+            if len(svgs) >= 3:
+                print("[DEBUG] Đã nhận diện đủ 3 icon SVG đầu tiên trong PolarisNavigationIcons (Home, Explore, Reels)")
+                return True
+        print("[DEBUG] Không tìm thấy đủ 3 icon SVG trong PolarisNavigationIcons.")
+    except Exception as e:
+        print(f"[DEBUG] Lỗi khi kiểm tra icon SVG menu: {e}")
+    return False

@@ -99,7 +99,7 @@ class FolderManagerDialog(QDialog):
 
         self.folder_table = QTableWidget()
         self.folder_table.setColumnCount(2)
-        self.folder_table.setHorizontalHeaderLabels(["STT", "Tên Thư Mục"])
+        self.folder_table.setHorizontalHeaderLabels(["STT", "Tên nhóm thư mục"])
         # Thiết lập font cho tiêu đề bảng thư mục
         header_font = QFont("Segoe UI", 10, QFont.Weight.Bold)
         self.folder_table.horizontalHeader().setFont(header_font)
@@ -138,8 +138,8 @@ class FolderManagerDialog(QDialog):
         account_list_panel.addWidget(lbl_account_list)
 
         self.account_table = QTableWidget()
-        self.account_table.setColumnCount(3) # Chọn, STT, Tên người dùng, Thư mục
-        self.account_table.setHorizontalHeaderLabels(["STT", "Tên người dùng", "Thư mục"])
+        self.account_table.setColumnCount(6) # STT, Số điện thoại, Mật khẩu 2FA, Username, ID, Nhóm hiện tại
+        self.account_table.setHorizontalHeaderLabels(["STT", "Số điện thoại", "Mật khẩu 2FA", "Username", "ID", "Nhóm hiện tại"])
         # Thiết lập font cho tiêu đề bảng tài khoản
         self.account_table.horizontalHeader().setFont(header_font)
 
@@ -147,8 +147,11 @@ class FolderManagerDialog(QDialog):
         self.account_table.setFont(table_data_font)
 
         self.account_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        self.account_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.account_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        self.account_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # Số điện thoại
+        self.account_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # Mật khẩu 2FA
+        self.account_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Username
+        self.account_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # ID
+        self.account_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)           # Nhóm hiện tại
         self.account_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.account_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.account_table.itemChanged.connect(self.handle_account_table_item_changed) # For checkbox changes
@@ -413,14 +416,23 @@ class FolderManagerDialog(QDialog):
         self.account_table.setRowCount(len(accounts_to_display))
         for row_idx, account in enumerate(accounts_to_display):
             username = str(account.get("username", ""))
+            telegram_2fa = account.get("telegram_2fa", "") or account.get("two_fa_password", "") or account.get("password_2fa", "") or account.get("twofa", "") or "Chưa có 2FA"
             current_folder = str(self.folder_map.get(username, "Tổng")) # Get current folder for the account
 
             # Cột 0: STT
             self.account_table.setItem(row_idx, 0, QTableWidgetItem(str(row_idx + 1)))
-            # Cột 1: Tên người dùng
+            # Cột 1: Số điện thoại
             self.account_table.setItem(row_idx, 1, QTableWidgetItem(username))
-            # Cột 2: Thư mục
-            self.account_table.setItem(row_idx, 2, QTableWidgetItem(current_folder))
+            # Cột 2: Mật khẩu 2FA
+            self.account_table.setItem(row_idx, 2, QTableWidgetItem(telegram_2fa))
+            # Cột 3: Username
+            account_username = account.get("telegram_username", "") or account.get("username_telegram", "") or account.get("tg_username", "") or "Chưa có username"
+            self.account_table.setItem(row_idx, 3, QTableWidgetItem(account_username))
+            # Cột 4: ID
+            account_id = account.get("telegram_id", "") or account.get("id_telegram", "") or account.get("tg_id", "") or account.get("user_id", "") or "Chưa có ID"
+            self.account_table.setItem(row_idx, 4, QTableWidgetItem(account_id))
+            # Cột 5: Nhóm hiện tại
+            self.account_table.setItem(row_idx, 5, QTableWidgetItem(current_folder))
 
         self.account_table.blockSignals(False) # Unblock signals
 
@@ -482,7 +494,7 @@ class FolderManagerDialog(QDialog):
             self.save_folder_map()
 
     def move_account_to_folder(self, row: int):
-        username_item = self.account_table.item(row, 1)
+        username_item = self.account_table.item(row, 1)  # Cột 1 là số điện thoại (username)
         username = username_item.text() if username_item else ""
         if not username:
             return
@@ -501,7 +513,7 @@ class FolderManagerDialog(QDialog):
             self.folders_updated.emit()
 
     def remove_account_from_folder(self, row: int):
-        username_item = self.account_table.item(row, 1)
+        username_item = self.account_table.item(row, 1)  # Cột 1 là số điện thoại (username)
         username = username_item.text() if username_item else ""
         if not username:
             return
