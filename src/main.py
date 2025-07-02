@@ -220,6 +220,7 @@ class MainWindow(QMainWindow):
                                 driver.set_page_load_timeout(15)  # 15 second page load timeout
                                 driver.implicitly_wait(5)        # 5 second implicit wait
                                 driver.set_script_timeout(12)    # 12 second script timeout
+                                
                                 print("[DEBUG] MainWindow: Đã áp dụng timeout limits cho WebDriver.")
                             except Exception as timeout_error:
                                 print(f"[WARN] MainWindow: Không thể áp dụng timeout: {timeout_error}")

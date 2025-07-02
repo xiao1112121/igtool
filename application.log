@@ -29837,3 +29837,9 @@ IndentationError: expected an indented block after 'if' statement on line 34
 2025-07-03 03:18:32,295 - INFO - TelegramBotManager initialized
 2025-07-03 03:33:26,776 - ERROR - Failed to import AccountManagementTab: cannot import name 'QAction' from 'PySide6.QtWidgets' (C:\Users\xiao\AppData\Local\Programs\Python\Python313\Lib\site-packages\PySide6\QtWidgets.pyd)
 2025-07-03 03:34:51,942 - ERROR - Failed to import AccountManagementTab: cannot import name 'QAction' from 'PySide6.QtWidgets' (C:\Users\xiao\AppData\Local\Programs\Python\Python313\Lib\site-packages\PySide6\QtWidgets.pyd)
+2025-07-03 03:35:36,598 - ERROR - Failed to import AccountManagementTab: cannot import name 'QAction' from 'PySide6.QtWidgets' (C:\Users\xiao\Desktop\hoantienganproxy\02\.venv\Lib\site-packages\PySide6\QtWidgets.pyd)
+2025-07-03 03:36:01,926 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-03 03:36:01,927 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-03 03:36:02,519 - INFO - Loaded AI config from ai_config.json
+2025-07-03 03:36:02,520 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-03 03:36:02,520 - INFO - TelegramBotManager initialized

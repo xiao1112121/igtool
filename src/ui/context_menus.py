@@ -2,9 +2,9 @@
 Context Menu classes cho các tab trong ứng dụng
 """
 
-from PySide6.QtWidgets import QMenu, QAction, QMessageBox, QInputDialog, QTableWidgetSelectionRange
+from PySide6.QtWidgets import QMenu, QMessageBox, QInputDialog, QTableWidgetSelectionRange
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QAction, QGuiApplication
 from functools import partial
 
 
