@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🤖 Telegram AI Automation Tool
 
 Công cụ tự động hóa Telegram với tích hợp AI mạnh mẽ, hỗ trợ quản lý nhiều tài khoản và tương tác thông minh.
@@ -169,3 +170,7 @@ Private project - All rights reserved
 ---
 
 **⚠️ Lưu ý**: Tuân thủ Terms of Service của Telegram khi sử dụng tool này.
+=======
+# 02.29.22.06.202525
+instagram tự động
+>>>>>>> 5a69d209e53b9bbf85fb164ccb1f2170380564d1
