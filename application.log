@@ -10145,3 +10145,179 @@ IndentationError: expected an indented block after 'with' statement on line 336
 2025-07-02 06:26:36,783 - INFO - Loaded AI config from ai_config.json
 2025-07-02 06:26:36,783 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
 2025-07-02 06:26:36,784 - INFO - TelegramBotManager initialized
+2025-07-02 20:56:00,757 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-02 20:56:00,758 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-02 20:56:01,792 - INFO - Loaded AI config from ai_config.json
+2025-07-02 20:56:01,792 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-02 20:56:01,792 - INFO - TelegramBotManager initialized
+2025-07-02 20:56:03,891 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:06,890 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1367, in monitor_ai_status
+    if ai.get('status') == 'active':
+       ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:07,891 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:19,369 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-02 20:56:19,370 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-02 20:56:20,111 - INFO - Loaded AI config from ai_config.json
+2025-07-02 20:56:20,112 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-02 20:56:20,113 - INFO - TelegramBotManager initialized
+2025-07-02 20:56:22,176 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "C:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:27,904 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:29,904 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:31,895 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1367, in monitor_ai_status
+    if ai.get('status') == 'active':
+       ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:31,925 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:35,891 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:39,891 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:41,890 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1367, in monitor_ai_status
+    if ai.get('status') == 'active':
+       ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:41,912 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:43,896 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:45,898 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:46,893 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1367, in monitor_ai_status
+    if ai.get('status') == 'active':
+       ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 20:56:49,940 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in update_stats
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+  File "c:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 1347, in <genexpr>
+    active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
+                                                 ^^^^^^
+AttributeError: 'str' object has no attribute 'get'
+2025-07-02 21:00:15,156 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-02 21:00:15,156 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-02 21:00:15,915 - INFO - Loaded AI config from ai_config.json
+2025-07-02 21:00:15,915 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-02 21:00:15,916 - INFO - TelegramBotManager initialized
+2025-07-02 21:00:28,377 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\account_management.py", line 596, in open_folder_manager
+    dialog = FolderManagerDialog(self.folder_map, parent=self)
+TypeError: FolderManagerDialog.__init__() missing 1 required positional argument: 'folder_map'
+2025-07-02 21:00:40,868 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\ai_management.py", line 866, in add_ai_account
+    self.ai_accounts.append(ai_data)
+    ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'dict' object has no attribute 'append'
+2025-07-02 21:01:54,037 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-02 21:01:54,038 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-02 21:01:54,808 - INFO - Loaded AI config from ai_config.json
+2025-07-02 21:01:54,808 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-02 21:01:54,808 - INFO - TelegramBotManager initialized
+2025-07-02 21:02:00,812 - CRITICAL - Uncaught exception
+Traceback (most recent call last):
+  File "C:\Users\xiao\Desktop\hoantienganproxy\02\src\ui\account_management.py", line 596, in open_folder_manager
+    dialog = FolderManagerDialog(self.folder_map, parent=self)
+TypeError: FolderManagerDialog.__init__() missing 1 required positional argument: 'folder_map'
+2025-07-02 21:06:09,693 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-02 21:06:09,695 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-02 21:06:10,587 - INFO - Loaded AI config from ai_config.json
+2025-07-02 21:06:10,587 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-02 21:06:10,587 - INFO - TelegramBotManager initialized
+2025-07-02 21:06:46,993 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-02 21:06:46,994 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-02 21:06:47,865 - INFO - Loaded AI config from ai_config.json
+2025-07-02 21:06:47,866 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-02 21:06:47,867 - INFO - TelegramBotManager initialized
+2025-07-02 21:08:15,618 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-02 21:08:15,619 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-02 21:08:16,379 - INFO - Loaded AI config from ai_config.json
+2025-07-02 21:08:16,380 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-02 21:08:16,380 - INFO - TelegramBotManager initialized
+2025-07-02 21:09:42,394 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-02 21:09:42,395 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-02 21:09:43,271 - INFO - Loaded AI config from ai_config.json
+2025-07-02 21:09:43,272 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-02 21:09:43,272 - INFO - TelegramBotManager initialized

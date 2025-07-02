@@ -148,17 +148,78 @@ class GitUploader(QWidget):
             w.setEnabled(enabled)
 
     def add_project(self):
-        path = QFileDialog.getExistingDirectory(self, "Chọn thư mục dự án")
-        if path:
-            for proj in self.projects:
-                if proj.path == path:
-                    QMessageBox.information(self, "Đã tồn tại", "Dự án này đã có trong danh sách.")
+        try:
+            # Tạo dialog chọn thư mục với các tùy chọn
+            dialog = QFileDialog(self)
+            dialog.setWindowTitle("Chọn thư mục dự án")
+            dialog.setFileMode(QFileDialog.Directory)
+            dialog.setOption(QFileDialog.ShowDirsOnly, True)
+            
+            # Đặt thư mục mặc định là Desktop hoặc Documents
+            default_paths = [
+                os.path.expanduser("~/Desktop"),
+                os.path.expanduser("~/Documents"),
+                os.path.expanduser("~")
+            ]
+            
+            # Tìm thư mục mặc định đầu tiên tồn tại
+            for path in default_paths:
+                if os.path.exists(path):
+                    dialog.setDirectory(path)
+                    break
+            
+            # Hiển thị dialog
+            if dialog.exec_():
+                selected_paths = dialog.selectedFiles()
+                if not selected_paths:
+                    self.log_box.append("[INFO] Không có thư mục nào được chọn")
                     return
-            proj = ProjectInfo(path)
-            self.projects.append(proj)
-            self.project_list.addItem(f"{proj.name} ({proj.path})")
-            self.project_list.setCurrentIndex(len(self.projects)-1)
-            self.log_box.append(f"[INFO] Đã thêm dự án: {proj.path}")
+                    
+                path = selected_paths[0]
+                
+                # Kiểm tra xem thư mục có phải là git repository không
+                git_dir = os.path.join(path, ".git")
+                if not os.path.exists(git_dir):
+                    # Hỏi người dùng có muốn khởi tạo git repository không
+                    reply = QMessageBox.question(self, 
+                        "Khởi tạo Git", 
+                        "Thư mục này chưa phải là Git repository.\nBạn có muốn khởi tạo Git repository không?",
+                        QMessageBox.Yes | QMessageBox.No)
+                        
+                    if reply == QMessageBox.Yes:
+                        try:
+                            # Khởi tạo git repository
+                            subprocess.run(["git", "init"], cwd=path, check=True)
+                            self.log_box.append(f"[INFO] Đã khởi tạo Git repository tại: {path}")
+                        except subprocess.CalledProcessError as e:
+                            QMessageBox.warning(self, "Lỗi", f"Không thể khởi tạo Git repository:\n{str(e)}")
+                            self.log_box.append(f"[ERROR] Lỗi khởi tạo Git repo: {str(e)}")
+                            return
+                    else:
+                        self.log_box.append("[INFO] Người dùng đã hủy khởi tạo Git repository")
+                        return
+
+                # Kiểm tra trùng lặp
+                for proj in self.projects:
+                    if proj.path == path:
+                        QMessageBox.information(self, "Đã tồn tại", "Dự án này đã có trong danh sách.")
+                        self.log_box.append(f"[INFO] Dự án đã tồn tại: {path}")
+                        return
+
+                # Thêm dự án mới
+                proj = ProjectInfo(path)
+                self.projects.append(proj)
+                self.project_list.addItem(f"{proj.name} ({proj.path})")
+                self.project_list.setCurrentIndex(len(self.projects)-1)
+                self.log_box.append(f"[INFO] Đã thêm dự án thành công: {proj.path}")
+            else:
+                self.log_box.append("[INFO] Người dùng đã hủy chọn thư mục")
+                
+        except Exception as e:
+            error_msg = str(e)
+            QMessageBox.critical(self, "Lỗi", f"Không thể thêm dự án:\n{error_msg}")
+            self.log_box.append(f"[ERROR] Lỗi khi thêm dự án: {error_msg}")
+            self.log_box.append(f"[DEBUG] Chi tiết lỗi: {type(e).__name__}")
 
     def check_network_status(self):
         if not check_github_online():
@@ -172,13 +233,31 @@ class GitUploader(QWidget):
         mapping = {
             "Dự án:": "Project:",
             "➕ Thêm dự án": "➕ Add Project",
+            "🌐 Kết nối & Push lên GitHub": "🌐 Connect & Push to GitHub",
             "Remote:": "Remote:",
             "🔄 Làm mới remote": "🔄 Refresh remote",
             "➕ Thêm remote": "➕ Add remote",
             "Branch hiện tại: ": "Current branch: ",
             "Branch mặc định remote: ": "Remote default branch: ",
             "Trạng thái: Sẵn sàng": "Status: Ready",
+            "Trạng thái: Chưa chọn dự án": "Status: No project selected",
             "⚠️ Không có kết nối mạng hoặc không truy cập được GitHub!": "⚠️ No network or cannot access GitHub!",
+            "Chưa chọn dự án": "No project selected",
+            "Vui lòng chọn dự án trước!": "Please select a project first!",
+            "Đã tồn tại": "Already exists",
+            "Dự án này đã có trong danh sách.": "This project is already in the list.",
+            "Tên remote": "Remote name",
+            "Nhập tên remote (ví dụ: origin):": "Enter remote name (e.g. origin):",
+            "URL remote": "Remote URL",
+            "Nhập URL remote (ví dụ: https://github.com/xxx/yyy.git):": "Enter remote URL (e.g. https://github.com/xxx/yyy.git):",
+            "Thành công": "Success",
+            "Đã thêm remote": "Remote added",
+            "Lỗi": "Error",
+            "Không thể thêm remote:": "Cannot add remote:",
+            "URL GitHub": "GitHub URL",
+            "Nhập URL repo GitHub (https://github.com/xxx/yyy.git):": "Enter GitHub repo URL (https://github.com/xxx/yyy.git):",
+            "Đã push dự án lên GitHub:": "Project pushed to GitHub:",
+            "Push thất bại:": "Push failed:",
             "Git": "Git"
         }
         return mapping.get(text, text)
@@ -251,8 +330,8 @@ class GitUploader(QWidget):
             # Chưa có commit, tạo file README.md nếu chưa có
             readme_path = os.path.join(self.current_project.path, "README.md")
             if not os.path.exists(readme_path):
-            with open(readme_path, "w", encoding="utf-8") as f:
-            f.write(f"# {self.current_project.name}\n")
+                with open(readme_path, "w", encoding="utf-8") as f:
+                    f.write(f"# {self.current_project.name}\n")
             
             subprocess.run(["git", "add", "."], cwd=self.current_project.path)
             subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.current_project.path)
@@ -268,27 +347,9 @@ class GitUploader(QWidget):
             QMessageBox.information(self, "Thành công", f"Đã push dự án lên GitHub: {url.strip()} (branch: {branch})")
         else:
             QMessageBox.warning(self, "Lỗi", f"Push thất bại: {push_out.stderr}")
-readme_path = os.path.join(self.current_project.path, "README.md")
-if not os.path.exists(readme_path):
-with open(readme_path, "w", encoding="utf-8") as f:
-f.write(f"# {self.current_project.name}\n")
-subprocess.run(["git", "add", "."], cwd=self.current_project.path)
-subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=self.current_project.path)
-# Push lần đầu
-branch = "main"
-# Nếu không có branch main, thử master
-out = subprocess.run(["git", "branch"], cwd=self.current_project.path, capture_output=True, text=True)
-branches = [b.strip().replace("* ", "") for b in out.stdout.splitlines()]
-if "main" not in branches and "master" in branches:
-branch = "master"
-push_out = subprocess.run(["git", "push", "-u", "origin", branch], cwd=self.current_project.path, capture_output=True, text=True)
-if push_out.returncode == 0:
-QMessageBox.information(self, "Thành công", f"Đã push dự án lên GitHub: {url.strip()} (branch: {branch})")
-else:
-QMessageBox.warning(self, "Lỗi", f"Push thất bại: {push_out.stderr}")
 
 if __name__ == "__main__":
-app = QApplication([])
-window = GitUploader()
-window.show()
-app.exec()
+    app = QApplication([])
+    window = GitUploader()
+    window.show()
+    app.exec()

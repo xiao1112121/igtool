@@ -695,30 +695,428 @@ class AccountManagementTab(QWidget):
             )
     
     def login_telegram(self):
-        """Thêm tài khoản Telegram mới"""
-        phone, ok = QInputDialog.getText(self, "Thêm tài khoản", "Nhập số điện thoại (+84...):")
-        if ok and phone.strip():
+        """Đăng nhập tài khoản Telegram mới"""
+        # Hiển thị dialog nhập thông tin
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle("Thêm tài khoản Telegram")
+        dialog.setLabelText("Nhập số điện thoại (bắt đầu bằng +84):")
+        dialog.setTextValue("+84")
+        
+        if dialog.exec() == QDialog.Accepted:
+            phone = dialog.textValue().strip()
+            if not phone.startswith("+84"):
+                QMessageBox.warning(self, "Lỗi", "Số điện thoại phải bắt đầu bằng +84!")
+                return
+            
+            # Thêm tài khoản mới
             new_account = {
-                "selected": False,
-                "username": phone.strip(),
-                "password": "",
-                "proxy": "",
+                "username": phone,
+                "phone": phone,
                 "status": "Chưa đăng nhập",
+                "proxy": "",
+                "permanent_proxy": "",  # ⭐ NEW: Thêm trường permanent_proxy
+                "proxy_status": "Chưa kiểm tra",
                 "followers": "",
                 "following": "",
-                "last_action": f"Thêm lúc {datetime.now().strftime('%H:%M:%S')}",
-                "proxy_status": "Chưa kiểm tra",
-                "permanent_proxy": ""
+                "last_action": ""
             }
+            
             self.accounts.append(new_account)
             self.save_accounts()
             self.update_account_table()
-            QMessageBox.information(self, "Thành công", f"Đã thêm tài khoản: {phone}")
+            
+            QMessageBox.information(self, "Thành công", f"Đã thêm tài khoản {phone}!")
 
-    def add_account(self):
-        """Alias for login_telegram for backward compatibility"""
-        return self.login_telegram()
-    
+    def login_selected_accounts(self):
+        """Đăng nhập các tài khoản đã chọn"""
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        # Tạo progress dialog
+        progress = QProgressDialog("Đang đăng nhập tài khoản...", "Hủy", 0, len(selected_accounts), self)
+        progress.setWindowModality(Qt.WindowModal)
+        progress.setWindowTitle("Đăng nhập tài khoản")
+        progress.setAutoClose(True)
+        progress.setAutoReset(True)
+
+        # Đăng nhập từng tài khoản
+        for i, account in enumerate(selected_accounts):
+            if progress.wasCanceled():
+                break
+
+            username = account.get('username', '')
+            progress.setLabelText(f"Đang đăng nhập {username}...")
+            progress.setValue(i)
+
+            try:
+                # Khởi tạo driver với proxy nếu có
+                proxy = None
+                if self.use_proxy:
+                    permanent_proxy = account.get('permanent_proxy', '').strip()
+                    if permanent_proxy:
+                        proxy = permanent_proxy
+                    else:
+                        proxy = account.get('proxy', '').strip()
+
+                driver = self.init_driver(proxy=proxy, username=username)
+                if not driver:
+                    account['status'] = "Lỗi khởi tạo driver"
+                    continue
+
+                # Thêm vào danh sách active drivers
+                self.active_drivers.append(driver)
+
+                # Đăng nhập
+                driver.get("https://web.telegram.org/k/")
+                time.sleep(5)  # Chờ trang load
+
+                # Kiểm tra đã đăng nhập chưa
+                if "web.telegram.org/k/" in driver.current_url:
+                    account['status'] = "Đã đăng nhập"
+                else:
+                    # Nhập số điện thoại
+                    phone_input = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.NAME, "phone"))
+                    )
+                    phone_input.clear()
+                    phone_input.send_keys(username)
+                    time.sleep(1)
+
+                    # Click nút Next/Submit
+                    next_button = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))
+                    )
+                    next_button.click()
+
+                    # Đợi code OTP từ user
+                    code, ok = QInputDialog.getText(
+                        self, 
+                        "Nhập mã OTP", 
+                        f"Nhập mã OTP cho {username}:"
+                    )
+                    if ok and code:
+                        # Nhập code OTP
+                        code_input = WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.NAME, "code"))
+                        )
+                        code_input.clear()
+                        code_input.send_keys(code)
+                        time.sleep(1)
+
+                        # Kiểm tra kết quả đăng nhập
+                        if "web.telegram.org/k/" in driver.current_url:
+                            account['status'] = "Đã đăng nhập"
+                        else:
+                            account['status'] = "Đăng nhập thất bại"
+                    else:
+                        account['status'] = "Đã hủy đăng nhập"
+
+            except Exception as e:
+                print(f"[ERROR] Lỗi đăng nhập {username}: {e}")
+                account['status'] = f"Lỗi: {str(e)[:50]}"
+
+            finally:
+                # Cập nhật UI
+                self.save_accounts()
+                self.update_account_table()
+
+        progress.setValue(len(selected_accounts))
+        QMessageBox.information(self, "Hoàn tất", "Đã hoàn tất quá trình đăng nhập!")
+
+    def select_selected_accounts(self):
+        """Chọn các tài khoản đang được chọn trong bảng"""
+        selected_rows = []
+        for row in range(self.account_table.rowCount()):
+            if self.account_table.item(row, 0).checkState() == Qt.Checked:
+                selected_rows.append(row)
+
+        if not selected_rows:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        for row in selected_rows:
+            self.accounts[row]['selected'] = True
+
+        self.save_accounts()
+        self.update_account_table()
+
+    def deselect_selected_accounts(self):
+        """Bỏ chọn các tài khoản đang được chọn trong bảng"""
+        selected_rows = []
+        for row in range(self.account_table.rowCount()):
+            if self.account_table.item(row, 0).checkState() == Qt.Checked:
+                selected_rows.append(row)
+
+        if not selected_rows:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        for row in selected_rows:
+            self.accounts[row]['selected'] = False
+
+        self.save_accounts()
+        self.update_account_table()
+
+    def deselect_all_accounts(self):
+        """Bỏ chọn tất cả tài khoản"""
+        for account in self.accounts:
+            account['selected'] = False
+
+        self.save_accounts()
+        self.update_account_table()
+
+    def delete_selected_accounts(self):
+        """Xóa các tài khoản đã chọn"""
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        reply = QMessageBox.question(
+            self, 
+            "Xác nhận xóa", 
+            f"Bạn có chắc muốn xóa {len(selected_accounts)} tài khoản đã chọn?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # Xóa tài khoản
+            self.accounts = [acc for acc in self.accounts if not acc.get('selected')]
+            self.save_accounts()
+            self.update_account_table()
+            QMessageBox.information(self, "Thành công", f"Đã xóa {len(selected_accounts)} tài khoản!")
+
+    def delete_all_accounts(self):
+        """Xóa tất cả tài khoản"""
+        if not self.accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Không có tài khoản nào để xóa!")
+            return
+
+        reply = QMessageBox.question(
+            self, 
+            "Xác nhận xóa", 
+            f"Bạn có chắc muốn xóa TẤT CẢ {len(self.accounts)} tài khoản?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            self.accounts.clear()
+            self.save_accounts()
+            self.update_account_table()
+            QMessageBox.information(self, "Thành công", "Đã xóa tất cả tài khoản!")
+
+    def add_selected_to_folder(self, folder_name):
+        """Thêm các tài khoản đã chọn vào thư mục"""
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        # Thêm vào thư mục
+        for account in selected_accounts:
+            username = account.get('username', '')
+            if username:
+                self.folder_map[username] = folder_name
+
+        self.save_folder_map()
+        self.update_account_table()
+        # Emit signal để thông báo folders đã được cập nhật
+        self.folders_updated.emit()
+
+        QMessageBox.information(
+            self, 
+            "Thành công", 
+            f"Đã thêm {len(selected_accounts)} tài khoản vào thư mục '{folder_name}'!"
+        )
+
+    def remove_selected_from_folder(self):
+        """Xóa các tài khoản đã chọn khỏi thư mục hiện tại"""
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        # Xóa khỏi thư mục
+        for account in selected_accounts:
+            username = account.get('username', '')
+            if username in self.folder_map:
+                del self.folder_map[username]
+
+        self.save_folder_map()
+        self.update_account_table()
+        # Emit signal để thông báo folders đã được cập nhật
+        self.folders_updated.emit()
+
+        QMessageBox.information(
+            self, 
+            "Thành công", 
+            f"Đã xóa {len(selected_accounts)} tài khoản khỏi thư mục!"
+        )
+
+    def delete_selected_folder(self):
+        """Xóa thư mục đang chọn"""
+        current_folder = self.category_combo.currentText()
+        if current_folder == "Tất cả":
+            QMessageBox.warning(self, "Cảnh báo", "Không thể xóa thư mục 'Tất cả'!")
+            return
+
+        reply = QMessageBox.question(
+            self, 
+            "Xác nhận xóa", 
+            f"Bạn có chắc muốn xóa thư mục '{current_folder}'?\nCác tài khoản trong thư mục sẽ được chuyển về 'Tổng'.",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # Xóa thư mục khỏi _FOLDER_SET_
+            if '_FOLDER_SET_' in self.folder_map:
+                folders = self.folder_map['_FOLDER_SET_']
+                if current_folder in folders:
+                    folders.remove(current_folder)
+                self.folder_map['_FOLDER_SET_'] = folders
+
+            # Chuyển tài khoản về Tổng
+            for username, folder in list(self.folder_map.items()):
+                if folder == current_folder:
+                    self.folder_map[username] = "Tổng"
+
+            self.save_folder_map()
+            self.load_folder_list_to_combo()
+            self.update_account_table()
+            # Emit signal để thông báo folders đã được cập nhật
+            self.folders_updated.emit()
+
+            QMessageBox.information(self, "Thành công", f"Đã xóa thư mục '{current_folder}'!")
+
+    def set_account_status_selected(self, status):
+        """Đặt trạng thái cho các tài khoản đã chọn"""
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        # Cập nhật trạng thái
+        for account in selected_accounts:
+            account['status'] = status
+
+        self.save_accounts()
+        self.update_account_table()
+        QMessageBox.information(
+            self, 
+            "Thành công", 
+            f"Đã chuyển {len(selected_accounts)} tài khoản sang trạng thái '{status}'!"
+        )
+
+    def toggle_stealth_mode(self):
+        """Bật/tắt chế độ ẩn danh cho các tài khoản đã chọn"""
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        # Toggle stealth mode
+        for account in selected_accounts:
+            account['stealth_mode'] = not account.get('stealth_mode', False)
+
+        self.save_accounts()
+        self.update_account_table()
+        QMessageBox.information(
+            self, 
+            "Thành công", 
+            f"Đã thay đổi chế độ ẩn danh cho {len(selected_accounts)} tài khoản!"
+        )
+
+    def export_accounts(self):
+        """Xuất tài khoản ra file"""
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Xuất tài khoản",
+            "accounts_export.json",
+            "JSON Files (*.json);;Text Files (*.txt);;CSV Files (*.csv);;All Files (*)"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            if file_path.endswith('.json'):
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(selected_accounts, f, indent=4, ensure_ascii=False)
+            elif file_path.endswith('.txt'):
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    for acc in selected_accounts:
+                        f.write(f"{acc.get('username', '')}\t{acc.get('password', '')}\t{acc.get('proxy', '')}\n")
+            elif file_path.endswith('.csv'):
+                import csv
+                with open(file_path, 'w', encoding='utf-8', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['Username', 'Password', 'Proxy', 'Status', 'Followers', 'Following'])
+                    for acc in selected_accounts:
+                        writer.writerow([
+                            acc.get('username', ''),
+                            acc.get('password', ''),
+                            acc.get('proxy', ''),
+                            acc.get('status', ''),
+                            acc.get('followers', ''),
+                            acc.get('following', '')
+                        ])
+
+            QMessageBox.information(
+                self,
+                "Thành công",
+                f"Đã xuất {len(selected_accounts)} tài khoản ra file:\n{file_path}"
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Lỗi",
+                f"Không thể xuất tài khoản:\n{str(e)}"
+            )
+
+    def update_selected_proxy_info(self):
+        """Cập nhật thông tin proxy cho các tài khoản đã chọn"""
+        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        proxy_text, ok = QInputDialog.getText(
+            self,
+            "Cập nhật Proxy",
+            f"Nhập proxy cho {len(selected_accounts)} tài khoản:\n(Format: ip:port:user:pass hoặc ip:port)"
+        )
+
+        if ok and proxy_text.strip():
+            proxy_text = proxy_text.strip()
+            # Cập nhật proxy cho các tài khoản đã chọn
+            for account in selected_accounts:
+                account['proxy'] = proxy_text
+                account['proxy_status'] = 'Chưa kiểm tra'
+
+            self.save_accounts()
+            self.update_account_table()
+            QMessageBox.information(
+                self,
+                "Thành công",
+                f"Đã cập nhật proxy cho {len(selected_accounts)} tài khoản!"
+            )
+
+    def handle_item_changed(self, item):
+        """Handle item change events"""
+        if item.column() == 0:  # Checkbox column
+            row = item.row()
+            if row < len(self.accounts):
+                self.accounts[row]['selected'] = item.checkState() == Qt.Checked
+                self.update_stats()
+
     def update_account_table(self, accounts_to_display=None):
         """Update account table display"""
         if accounts_to_display is None:
@@ -810,7 +1208,3 @@ class AccountManagementTab(QWidget):
                 filtered_accounts.append(account)
         
         self.update_account_table(filtered_accounts)
-    
-    def handle_item_changed(self, item):
-        """Handle table item changes"""
-        pass  # Placeholder for item change handling

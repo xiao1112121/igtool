@@ -763,10 +763,23 @@ class AIManagementTab(QWidget):
     def load_data(self):
         """Load dữ liệu từ files"""
         # Load AI accounts
+        self._data_from_combined_file = False
         if os.path.exists(self.ai_accounts_file):
             try:
                 with open(self.ai_accounts_file, 'r', encoding='utf-8') as f:
-                    self.ai_accounts = json.load(f)
+                    data = json.load(f)
+                    # Handle both formats: direct list or nested object
+                    if isinstance(data, list):
+                        self.ai_accounts = data
+                    elif isinstance(data, dict) and 'ai_accounts' in data:
+                        self.ai_accounts = data['ai_accounts']
+                        # Also load groups if present in combined file
+                        if 'groups' in data:
+                            self.chat_groups = data['groups']
+                            self._data_from_combined_file = True
+                    else:
+                        print(f"[WARN] Unknown ai_accounts.json format, defaulting to empty list")
+                        self.ai_accounts = []
             except Exception as e:
                 print(f"[ERROR] Không thể load AI accounts: {e}")
                 self.ai_accounts = []
@@ -782,8 +795,11 @@ class AIManagementTab(QWidget):
         else:
             self.personalities = self.get_default_personalities()
         
-        # Load chat groups
-        if os.path.exists(self.chat_groups_file):
+        # Load chat groups - check if already loaded from ai_accounts.json
+        if hasattr(self, '_data_from_combined_file') and self._data_from_combined_file:
+            # Already loaded groups from ai_accounts.json, skip separate file
+            pass
+        elif os.path.exists(self.chat_groups_file):
             try:
                 with open(self.chat_groups_file, 'r', encoding='utf-8') as f:
                     self.chat_groups = json.load(f)
@@ -795,16 +811,32 @@ class AIManagementTab(QWidget):
         """Lưu dữ liệu vào files"""
         try:
             # Save AI accounts
-            with open(self.ai_accounts_file, 'w', encoding='utf-8') as f:
-                json.dump(self.ai_accounts, f, indent=2, ensure_ascii=False)
+            if hasattr(self, '_data_from_combined_file') and self._data_from_combined_file:
+                # Save in combined format
+                combined_data = {
+                    'ai_accounts': self.ai_accounts,
+                    'groups': self.chat_groups,
+                    'settings': {
+                        'auto_save': True,
+                        'backup_interval': 300,
+                        'max_backups': 10,
+                        'last_backup': datetime.now().isoformat()
+                    }
+                }
+                with open(self.ai_accounts_file, 'w', encoding='utf-8') as f:
+                    json.dump(combined_data, f, indent=2, ensure_ascii=False)
+            else:
+                # Save in separate files
+                with open(self.ai_accounts_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.ai_accounts, f, indent=2, ensure_ascii=False)
+                
+                # Save chat groups
+                with open(self.chat_groups_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.chat_groups, f, indent=2, ensure_ascii=False)
             
-            # Save personalities
+            # Always save personalities separately
             with open(self.personalities_file, 'w', encoding='utf-8') as f:
                 json.dump(self.personalities, f, indent=2, ensure_ascii=False)
-            
-            # Save chat groups
-            with open(self.chat_groups_file, 'w', encoding='utf-8') as f:
-                json.dump(self.chat_groups, f, indent=2, ensure_ascii=False)
                 
         except Exception as e:
             print(f"[ERROR] Không thể lưu dữ liệu: {e}")
@@ -934,7 +966,7 @@ class AIManagementTab(QWidget):
         """Khởi động tất cả AI"""
         count = 0
         for ai in self.ai_accounts:
-            if ai['status'] != 'active':
+            if isinstance(ai, dict) and ai['status'] != 'active':
                 ai['status'] = 'active'
                 ai['last_active'] = datetime.now().isoformat()
                 count += 1
@@ -949,7 +981,7 @@ class AIManagementTab(QWidget):
         """Dừng tất cả AI"""
         count = 0
         for ai in self.ai_accounts:
-            if ai['status'] == 'active':
+            if isinstance(ai, dict) and ai['status'] == 'active':
                 ai['status'] = 'idle'
                 count += 1
         
@@ -1072,6 +1104,8 @@ class AIManagementTab(QWidget):
         
         count = 0
         for ai in self.ai_accounts:
+            if not isinstance(ai, dict):
+                continue
             if random.choice([True, False]):  # 50% chance
                 group = random.choice(self.chat_groups)
                 ai['assigned_groups'] = ai.get('assigned_groups', [])
@@ -1099,8 +1133,9 @@ class AIManagementTab(QWidget):
         
         if reply == QMessageBox.Yes:
             for ai in self.ai_accounts:
-                ai['status'] = 'stopped'
-                ai['emergency_stopped'] = True
+                if isinstance(ai, dict):
+                    ai['status'] = 'stopped'
+                    ai['emergency_stopped'] = True
             
             self.save_data()
             self.update_ai_table()
@@ -1111,7 +1146,7 @@ class AIManagementTab(QWidget):
         """Tạm dừng tất cả AI"""
         count = 0
         for ai in self.ai_accounts:
-            if ai['status'] == 'active':
+            if isinstance(ai, dict) and ai['status'] == 'active':
                 ai['status'] = 'paused'
                 count += 1
         
@@ -1123,7 +1158,7 @@ class AIManagementTab(QWidget):
         """Tiếp tục tất cả AI"""
         count = 0
         for ai in self.ai_accounts:
-            if ai['status'] == 'paused':
+            if isinstance(ai, dict) and ai['status'] == 'paused':
                 ai['status'] = 'active'
                 ai['last_active'] = datetime.now().isoformat()
                 count += 1
@@ -1254,6 +1289,10 @@ class AIManagementTab(QWidget):
         self.ai_table.setRowCount(len(self.ai_accounts))
         
         for row, ai in enumerate(self.ai_accounts):
+            # Skip if ai is not a dictionary
+            if not isinstance(ai, dict):
+                continue
+                
             # Checkbox
             checkbox_item = QTableWidgetItem()
             checkbox_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
@@ -1344,9 +1383,9 @@ class AIManagementTab(QWidget):
     def update_stats(self):
         """Cập nhật thống kê"""
         total = len(self.ai_accounts)
-        active = sum(1 for ai in self.ai_accounts if ai.get('status') == 'active')
-        idle = sum(1 for ai in self.ai_accounts if ai.get('status') == 'idle')
-        error = sum(1 for ai in self.ai_accounts if ai.get('status') == 'error')
+        active = sum(1 for ai in self.ai_accounts if isinstance(ai, dict) and ai.get('status') == 'active')
+        idle = sum(1 for ai in self.ai_accounts if isinstance(ai, dict) and ai.get('status') == 'idle')
+        error = sum(1 for ai in self.ai_accounts if isinstance(ai, dict) and ai.get('status') == 'error')
         
         # Update main stats
         self.stats_label.setText(f"📊 Total: {total} AI | Hoạt động: {active} | Nghỉ: {idle}")
@@ -1357,14 +1396,14 @@ class AIManagementTab(QWidget):
             self.idle_ais_label.setText(f"🟡 AI nghỉ: {idle}")
             self.error_ais_label.setText(f"🔴 AI lỗi: {error}")
             
-            total_messages = sum(ai.get('messages_sent', 0) for ai in self.ai_accounts)
+            total_messages = sum(ai.get('messages_sent', 0) for ai in self.ai_accounts if isinstance(ai, dict))
             self.total_messages_label.setText(f"💬 Tin nhắn đã gửi: {total_messages}")
     
     def monitor_ai_status(self):
         """Monitor AI status (chạy định kỳ)"""
         # Simulate status changes for demo
         for ai in self.ai_accounts:
-            if ai.get('status') == 'active':
+            if isinstance(ai, dict) and ai.get('status') == 'active':
                 # Random chance of sending message
                 if random.random() < 0.1:  # 10% chance
                     ai['messages_sent'] = ai.get('messages_sent', 0) + 1
