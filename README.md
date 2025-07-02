@@ -5,6 +5,7 @@ Công cụ tự động hóa Telegram với tích hợp AI mạnh mẽ, hỗ tr�
 ## ✨ Tính năng chính
 
 ### 🔐 Quản lý tài khoản
+
 - Quản lý 19+ tài khoản Telegram
 - Đăng nhập tự động qua Telegram API (không cần browser)
 - Hỗ trợ 2FA và proxy
@@ -12,6 +13,7 @@ Công cụ tự động hóa Telegram với tích hợp AI mạnh mẽ, hỗ tr�
 - Import/Export tài khoản từ CSV/TXT
 
 ### 🤖 AI Integration
+
 - **AI Provider**: Groq API với model `llama-3.1-8b-instant`
 - **12 AI Personalities**: Hài hước, Thân thiện, Chuyên nghiệp, Sáng tạo, v.v.
 - **Rate Limiting**: Bảo vệ khỏi spam API
@@ -19,17 +21,20 @@ Công cụ tự động hóa Telegram với tích hợp AI mạnh mẽ, hỗ tr�
 - **Error Handling**: Xử lý lỗi thông minh
 
 ### 💬 Messaging System
+
 - Gửi tin nhắn hàng loạt
 - Template tin nhắn với biến động
 - Lọc tài khoản theo thư mục
 - Thống kê tin nhắn
 
 ### 🔍 Data Scanner
+
 - Quét dữ liệu từ các group/channel
 - Phân tích thành viên
 - Export dữ liệu
 
 ### 🌐 Proxy Management
+
 - Hỗ trợ HTTP/SOCKS proxy
 - Kiểm tra trạng thái proxy
 - Rotation proxy tự động
@@ -37,17 +42,20 @@ Công cụ tự động hóa Telegram với tích hợp AI mạnh mẽ, hỗ tr�
 ## 🚀 Cài đặt
 
 ### Yêu cầu hệ thống
+
 - Python 3.13+
 - Windows 10/11
 - RAM: 4GB+
 - Disk: 1GB free space
 
 ### Cài đặt dependencies
+
 ```bash
 pip install -r src/requirements.txt
 ```
 
 ### Chạy ứng dụng
+
 ```bash
 python src/main.py
 ```
@@ -55,6 +63,7 @@ python src/main.py
 ## 🔧 Cấu hình
 
 ### AI Configuration
+
 File `ai_config.json`:
 ```json
 {
@@ -68,6 +77,7 @@ File `ai_config.json`:
 ```
 
 ### Telegram Setup
+
 1. Lấy API credentials từ [my.telegram.org](https://my.telegram.org)
 2. Cấu hình trong tab "Quản lý tài khoản"
 3. Đăng nhập từng tài khoản
@@ -94,21 +104,25 @@ File `ai_config.json`:
 ## 🎯 Sử dụng
 
 ### 1. Quản lý tài khoản
+
 - Thêm tài khoản Telegram bằng số điện thoại
 - Đăng nhập tự động
 - Phân loại vào thư mục
 
 ### 2. Sử dụng AI
+
 - Chọn personality AI
 - Test response trong tab "Quản lý AI"
 - Tích hợp vào messaging
 
 ### 3. Gửi tin nhắn
+
 - Tạo template tin nhắn
 - Chọn tài khoản và target
 - Gửi hàng loạt với AI
 
 ### 4. Quét dữ liệu
+
 - Chọn group/channel
 - Quét thành viên
 - Export CSV

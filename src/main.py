@@ -30,13 +30,13 @@ print(f"[DEBUG] main.py: Project root calculated: {project_root}")
 print(f"[DEBUG] main.py: sys.path after modification: {sys.path}")
 print("[DEBUG] main.py: Bắt đầu nhập module...")
 
-# Setup logging
+# Cấu hình logging để hỗ trợ tiếng Việt
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('application.log'),
-        logging.StreamHandler()
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('application.log', encoding='utf-8')
     ]
 )
 
@@ -309,11 +309,15 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'proxy_tab') and hasattr(self, 'account_tab') and self.proxy_tab and self.account_tab:
             try:
                 # Connect proxy_updated signal if it exists
-                if hasattr(self.proxy_tab, 'proxy_updated') and hasattr(self.account_tab, 'sync_proxy_data'):
-                    self.proxy_tab.proxy_updated.connect(self.account_tab.sync_proxy_data)
-                    print("[DEBUG] MainWindow: Đã kết nối tín hiệu proxy_updated.")
+                if hasattr(self.proxy_tab, 'proxy_updated'):
+                    # Check if account_tab has the sync_proxy_data method
+                    if hasattr(self.account_tab, 'sync_proxy_data'):
+                        self.proxy_tab.proxy_updated.connect(self.account_tab.sync_proxy_data)
+                        print("[DEBUG] MainWindow: Đã kết nối tín hiệu proxy_updated.")
+                    else:
+                        print("[DEBUG] MainWindow: Bỏ qua kết nối tín hiệu proxy_updated (account_tab không có sync_proxy_data).")
                 else:
-                    print("[DEBUG] MainWindow: Bỏ qua kết nối tín hiệu proxy_updated (không có sync_proxy_data).")
+                    print("[DEBUG] MainWindow: Bỏ qua kết nối tín hiệu proxy_updated (proxy_tab không có proxy_updated signal).")
             except Exception as e:
                 print(f"[ERROR] MainWindow: Lỗi khi kết nối tín hiệu proxy_updated: {e}")
                 logging.error(f"Failed to connect proxy_updated signal: {e}")
@@ -393,11 +397,16 @@ class MainWindow(QMainWindow):
             
             # Cleanup account tab drivers
             if hasattr(self, 'account_tab') and self.account_tab:
-                try:
-                    if hasattr(self.account_tab, 'close_all_drivers'):
-                        self.account_tab.close_all_drivers()
-                except Exception as e:
-                    logging.warning(f"Error closing drivers: {e}")
+                # Clean up any orphaned drivers
+                if hasattr(self.account_tab, 'active_drivers'):
+                    active_drivers: List[Any] = self.account_tab.active_drivers
+                    for driver in list(active_drivers):
+                        try:
+                            if driver and hasattr(driver, 'quit'):
+                                driver.quit()
+                        except Exception:
+                            pass
+                    active_drivers.clear()
             
             # Wait for threads to finish
             QThread.msleep(1000)  # Wait 1 second for threads to cleanup

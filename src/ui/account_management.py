@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QLineEdit, QTextEdit, QFileDialog, QMessageBox,
     QProgressBar, QComboBox, QCheckBox, QSpinBox, QGroupBox,
     QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
-    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog, QSlider)
+    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog, QSlider, QDialog)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent, QMetaObject, Slot
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QGuiApplication, QAction
 from selenium import webdriver
@@ -95,8 +95,13 @@ class CheckboxDelegate(QStyledItemDelegate):
 
             # Phát tín hiệu khi checkbox được click
             self.checkbox_clicked.emit(index.row(), new_state)
+            
+            # Force repaint để cập nhật giao diện ngay lập tức
+            if hasattr(model, 'parent') and hasattr(model.parent(), 'viewport'):
+                model.parent().viewport().update()
+            
             return True  # Đã xử lý sự kiện
-        return False  # Quan trọng: Trả về False để các sự kiện không phải click được xử lý mặc định
+        return super().editorEvent(event, model, option, index)  # Quan trọng: Gọi super() thay vì return False
 
 class CheckableHeaderView(QHeaderView):
     toggleAllCheckboxes = Signal(bool)  # Tín hiệu để thông báo khi checkbox trong header được toggle
@@ -177,8 +182,8 @@ class AccountManagementTab(QWidget):
     def __init__(self, proxy_tab_instance=None, parent=None):
         super().__init__(parent)
         self.proxy_tab = proxy_tab_instance
-        self.accounts_file = "accounts.json"
-        self.folder_map_file = "data/folder_map.json"
+        self.accounts_file = os.path.join(os.getcwd(), "accounts.json")
+        self.folder_map_file = os.path.join(os.getcwd(), "data", "folder_map.json")
         
         # Initialize empty lists/dicts
         self.accounts = []
@@ -287,9 +292,9 @@ class AccountManagementTab(QWidget):
         btn_add_account.clicked.connect(self.login_telegram)
         self.sidebar_layout.addWidget(btn_add_account)
 
-        btn_import_accounts = QPushButton("Import .txt/.csv")
-        btn_import_accounts.clicked.connect(self.import_accounts)
-        self.sidebar_layout.addWidget(btn_import_accounts)
+        btn_load_sessions = QPushButton("LOAD SESSION")
+        btn_load_sessions.clicked.connect(self.load_sessions)
+        self.sidebar_layout.addWidget(btn_load_sessions)
 
         btn_add_folder = QPushButton("Quản lý thư mục")
         btn_add_folder.clicked.connect(self.open_folder_manager)
@@ -340,9 +345,9 @@ class AccountManagementTab(QWidget):
 
         # Account table
         self.account_table = QTableWidget()
-        self.account_table.setColumnCount(11)  # ⭐ Tăng lên 11 cột để thêm Permanent Proxy
+        self.account_table.setColumnCount(12)  # ⭐ Tăng lên 12 cột để thêm Username column
         self.account_table.setHorizontalHeaderLabels([
-            "", "STT", "Tên đăng nhập", "Mật khẩu", "Trạng thái", 
+            "", "STT", "Số điện thoại", "Mật khẩu 2FA", "Username", "Trạng thái", 
             "Proxy", "Proxy VV", "Trạng thái Proxy", "Follower", "Following", "Hành động cuối"
         ])
 
@@ -361,23 +366,25 @@ class AccountManagementTab(QWidget):
         self.account_table.setColumnWidth(0, 29)
         header.setSectionResizeMode(1, QHeaderView.Fixed)  # Cột "STT"
         self.account_table.setColumnWidth(1, 29)  # Đặt chiều rộng cột STT thành 29px
-        header.setSectionResizeMode(2, QHeaderView.Fixed)  # Cột "Tên đăng nhập" - Chuyển về Fixed
-        self.account_table.setColumnWidth(2, 150)  # Đặt chiều rộng cố định
-        header.setSectionResizeMode(3, QHeaderView.Fixed)  # Cột "Mật khẩu" - Chuyển về Fixed
-        self.account_table.setColumnWidth(3, 150)  # Đặt chiều rộng cố định
-        header.setSectionResizeMode(4, QHeaderView.Fixed)  # Cột "Trạng thái"
-        self.account_table.setColumnWidth(4, 120)  # Giữ nguyên chiều rộng
-        header.setSectionResizeMode(5, QHeaderView.Fixed)  # Cột "Proxy" - Chuyển về Fixed
-        self.account_table.setColumnWidth(5, 150)  # Đặt chiều rộng cố định (giảm để có chỗ cho Permanent Proxy)
-        header.setSectionResizeMode(6, QHeaderView.Fixed)  # ⭐ Cột "Permanent Proxy"
-        self.account_table.setColumnWidth(6, 120)  # Proxy VV - chiều rộng vừa phải
-        header.setSectionResizeMode(7, QHeaderView.Fixed)  # Cột "Trạng thái Proxy"
-        self.account_table.setColumnWidth(7, 120)  # Giảm chiều rộng
-        header.setSectionResizeMode(8, QHeaderView.Fixed)  # Cột "Follower"
-        self.account_table.setColumnWidth(8, 79)
-        header.setSectionResizeMode(9, QHeaderView.Fixed)  # Cột "Following"
-        self.account_table.setColumnWidth(9, 79)
-        header.setSectionResizeMode(10, QHeaderView.Stretch)  # Cột "Hành động cuối" - Giữ nguyên Stretch
+        header.setSectionResizeMode(2, QHeaderView.Fixed)  # Cột "Số điện thoại" - Chuyển về Fixed
+        self.account_table.setColumnWidth(2, 130)  # Đặt chiều rộng cố định (giảm để có chỗ cho Username)
+        header.setSectionResizeMode(3, QHeaderView.Fixed)  # Cột "Mật khẩu 2FA" - Chuyển về Fixed
+        self.account_table.setColumnWidth(3, 100)  # Đặt chiều rộng cố định (giảm để có chỗ cho Username)
+        header.setSectionResizeMode(4, QHeaderView.Fixed)  # Cột "Username" - NEW
+        self.account_table.setColumnWidth(4, 120)  # Username column width
+        header.setSectionResizeMode(5, QHeaderView.Fixed)  # Cột "Trạng thái"
+        self.account_table.setColumnWidth(5, 120)  # Giữ nguyên chiều rộng
+        header.setSectionResizeMode(6, QHeaderView.Fixed)  # Cột "Proxy" - Chuyển về Fixed
+        self.account_table.setColumnWidth(6, 130)  # Đặt chiều rộng cố định
+        header.setSectionResizeMode(7, QHeaderView.Fixed)  # ⭐ Cột "Permanent Proxy"
+        self.account_table.setColumnWidth(7, 100)  # Proxy VV - chiều rộng giảm
+        header.setSectionResizeMode(8, QHeaderView.Fixed)  # Cột "Trạng thái Proxy"
+        self.account_table.setColumnWidth(8, 100)  # Giảm chiều rộng
+        header.setSectionResizeMode(9, QHeaderView.Fixed)  # Cột "Follower"
+        self.account_table.setColumnWidth(9, 70)  # Giảm chiều rộng
+        header.setSectionResizeMode(10, QHeaderView.Fixed)  # Cột "Following"
+        self.account_table.setColumnWidth(10, 70)  # Giảm chiều rộng
+        header.setSectionResizeMode(11, QHeaderView.Stretch)  # Cột "Hành động cuối" - Giữ nguyên Stretch
         self.account_table.verticalHeader().setDefaultSectionSize(40)
         self.account_table.horizontalHeader().setFixedHeight(40)
 
@@ -423,7 +430,25 @@ class AccountManagementTab(QWidget):
                         if "permanent_proxy" not in account:
                             account["permanent_proxy"] = ""
                             updated = True
-                            print(f"[DEBUG] Migrated account {account.get('username', 'Unknown')} with permanent_proxy field")
+                        # ⭐ NEW FIELD: phone (fallback to username)
+                        if "phone" not in account:
+                            account["phone"] = account.get("username", "")
+                            updated = True
+                        # ⭐ NEW FIELD: two_fa_password
+                        if "two_fa_password" not in account:
+                            account["two_fa_password"] = ""
+                            updated = True
+                        # ⭐ NEW FIELD: telegram_username
+                        if "telegram_username" not in account:
+                            account["telegram_username"] = ""
+                            updated = True
+                        # ⭐ ENSURE: selected field exists
+                        if "selected" not in account:
+                            account["selected"] = False
+                            updated = True
+                        
+                        if updated:
+                            print(f"[DEBUG] Migrated account {account.get('username', 'Unknown')} with new fields")
                     
                     # Lưu lại nếu có migration
                     if updated:
@@ -473,15 +498,26 @@ class AccountManagementTab(QWidget):
             return default_folder_map
 
     def save_accounts(self):
-        if hasattr(self, 'accounts_file'):
+        if hasattr(self, 'accounts_file') and self.accounts_file:
             try:
-                # Tạo thư mục data nếu chưa có
-                os.makedirs(os.path.dirname(self.accounts_file), exist_ok=True)
+                # Đảm bảo thư mục tồn tại
+                accounts_dir = os.path.dirname(self.accounts_file)
+                if accounts_dir and not os.path.exists(accounts_dir):
+                    os.makedirs(accounts_dir, exist_ok=True)
+                
                 with open(self.accounts_file, 'w', encoding='utf-8') as f:
                     json.dump(self.accounts, f, indent=4, ensure_ascii=False)
-                print("[INFO] Accounts đã được lưu.")
+                print(f"[INFO] Accounts đã được lưu vào: {self.accounts_file}")
             except Exception as e:
-                print(f"[ERROR] Lỗi khi lưu accounts: {e}")
+                print(f"[ERROR] Lỗi khi lưu accounts vào {self.accounts_file}: {e}")
+                # Fallback: lưu vào file backup
+                try:
+                    backup_file = "accounts_backup.json"
+                    with open(backup_file, 'w', encoding='utf-8') as f:
+                        json.dump(self.accounts, f, indent=4, ensure_ascii=False)
+                    print(f"[INFO] Đã lưu backup vào: {backup_file}")
+                except Exception as backup_error:
+                    print(f"[ERROR] Không thể lưu backup: {backup_error}")
 
     def save_folder_map(self):
         if hasattr(self, 'folder_map_file'):
@@ -522,86 +558,144 @@ class AccountManagementTab(QWidget):
             self.update_account_table(filtered_accounts)
         print(f"[DEBUG] Filtered accounts by folder: {selected_folder}")
 
-    def import_accounts(self):
-        """Import accounts from file"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Import tài khoản", "", "Text Files (*.txt);;CSV Files (*.csv);;All Files (*)"
-        )
-        if file_path:
-            try:
-                imported_accounts = []
-                if file_path.endswith('.csv'):
-                    import csv
-                    with open(file_path, 'r', encoding='utf-8', newline='') as f:
-                        reader = csv.reader(f)
-                        for row in reader:
-                            if len(row) >= 2:
-                                username = row[0].strip()
-                                password = row[1].strip()
-                                proxy = row[2].strip() if len(row) > 2 else ""
-                                if username and password:
-                                    imported_accounts.append({
+    def load_sessions(self):
+        """Load file .session với validation - chỉ load session hợp lệ"""
+        try:
+            sessions_dir = "sessions"
+            if not os.path.exists(sessions_dir):
+                QMessageBox.warning(
+                    self, "Cảnh báo", 
+                    f"Thư mục '{sessions_dir}' không tồn tại!\n\nVui lòng tạo thư mục và đặt các file .session vào đó."
+                )
+                return
+            
+            # Tìm tất cả file .session
+            session_files = []
+            for file in os.listdir(sessions_dir):
+                if file.endswith('.session'):
+                    session_files.append(file)
+            
+            if not session_files:
+                QMessageBox.information(
+                    self, "Thông báo", 
+                    f"Không tìm thấy file .session nào trong thư mục '{sessions_dir}'!"
+                )
+                return
+            
+            # Tạo progress dialog
+            progress = QProgressDialog("Đang kiểm tra và load session files...", "Hủy", 0, len(session_files), self)
+            progress.setWindowModality(Qt.WindowModal)
+            progress.show()
+            
+            # Tạo danh sách tài khoản từ session files HỢP LỆ
+            loaded_accounts = []
+            existing_usernames = {acc.get('username', '') for acc in self.accounts}
+            
+            valid_sessions = 0
+            invalid_sessions = 0
+            skipped_existing = 0
+            
+            for i, session_file in enumerate(session_files):
+                if progress.wasCanceled():
+                    break
+                    
+                progress.setLabelText(f"Kiểm tra: {session_file}")
+                progress.setValue(i)
+                QApplication.processEvents()  # Cập nhật UI
+                
+                # Lấy username từ tên file (bỏ .session)
+                username = session_file.replace('.session', '')
+                
+                # Thêm dấu + nếu là số điện thoại
+                if username.isdigit():
+                    username = f"+{username}"
+                
+                # Kiểm tra đã tồn tại chưa
+                if username in existing_usernames:
+                    skipped_existing += 1
+                    print(f"[INFO] Bỏ qua {username} - đã tồn tại trong danh sách")
+                    continue
+                
+                # ⭐ KIỂM TRA SESSION HỢP LỆ TRƯỚC KHI LOAD
+                print(f"[INFO] Đang validate session cho {username}...")
+                is_valid = self.validate_telegram_session(username)
+                
+                if is_valid:
+                    # Session hợp lệ - load vào danh sách và lấy username
+                    telegram_username = self.get_telegram_username_from_session(username)
+                    
+                    new_account = {
                                         "selected": False,
                                         "username": username,
-                                        "password": password,
-                                        "proxy": proxy,
-                                        "status": "Chưa đăng nhập",
-                                        "followers": "",
-                                        "following": "",
-                                        "last_action": "",
-                                        "proxy_status": "Chưa kiểm tra",
-                                        "permanent_proxy": ""
-                                    })
-                else:
-                    # Text file
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        for line in f:
-                            line = line.strip()
-                            if ':' in line:
-                                parts = line.split(':')
-                                username = parts[0].strip()
-                                password = parts[1].strip()
-                                if username and password:
-                                    imported_accounts.append({
-                                        "selected": False,
-                                        "username": username,
-                                        "password": password,
+                        "phone": username,  # Số điện thoại
+                        "password": "",  # Không cần password khi có session
+                        "two_fa_password": "",  # Mật khẩu 2FA (có thể để trống ban đầu)
+                        "telegram_username": telegram_username,  # Username Telegram lấy từ session
                                         "proxy": "",
-                                        "status": "Chưa đăng nhập",
+                        "permanent_proxy": "",
+                        "status": "✅ Session hợp lệ",
                                         "followers": "",
                                         "following": "",
-                                        "last_action": "",
-                                        "proxy_status": "Chưa kiểm tra",
-                                        "permanent_proxy": ""
-                                    })
-                
-                if imported_accounts:
-                    self.accounts.extend(imported_accounts)
-                    self.save_accounts()
-                    self.update_account_table()
-                    QMessageBox.information(
-                        self, "Import thành công", 
-                        f"Đã import {len(imported_accounts)} tài khoản!"
-                    )
+                        "last_action": "Load session hợp lệ",
+                        "proxy_status": "Chưa kiểm tra"
+                    }
+                    loaded_accounts.append(new_account)
+                    existing_usernames.add(username)
+                    valid_sessions += 1
+                    if telegram_username:
+                        print(f"[SUCCESS] Đã load session hợp lệ: {username} (@{telegram_username})")
+                    else:
+                        print(f"[SUCCESS] Đã load session hợp lệ: {username}")
                 else:
-                    QMessageBox.warning(self, "Import thất bại", "Không tìm thấy tài khoản hợp lệ trong file!")
+                    # Session không hợp lệ - xóa file
+                    invalid_sessions += 1
+                    session_file_path = f"{sessions_dir}/{session_file}"
+                    try:
+                        os.remove(session_file_path)
+                        print(f"[INFO] Đã xóa session file không hợp lệ: {session_file_path}")
+                    except Exception as e:
+                        print(f"[WARN] Không thể xóa session file: {e}")
+                    print(f"[WARN] Session không hợp lệ, đã bỏ qua: {username}")
+            
+            progress.setValue(len(session_files))
+            progress.close()
+            
+            # Thêm tài khoản hợp lệ vào danh sách
+            if loaded_accounts:
+                self.accounts.extend(loaded_accounts)
+                self.save_accounts()
+                self.update_account_table()
+            
+            # Hiển thị kết quả chi tiết
+            result_message = f"📊 KẾT QUẢ LOAD SESSION:\n\n"
+            result_message += f"✅ Session hợp lệ được load: {valid_sessions}\n"
+            result_message += f"❌ Session không hợp lệ (đã xóa): {invalid_sessions}\n"
+            result_message += f"⏭️ Đã tồn tại (bỏ qua): {skipped_existing}\n"
+            result_message += f"📋 Tổng session files: {len(session_files)}\n\n"
+            
+            if valid_sessions > 0:
+                result_message += f"🎉 Đã thêm {valid_sessions} tài khoản mới với session hợp lệ!"
+            elif invalid_sessions > 0:
+                result_message += "⚠️ Tất cả session files đều không hợp lệ hoặc đã tồn tại."
+            else:
+                result_message += "📝 Không có session files mới để xử lý."
+            
+            if invalid_sessions > 0:
+                result_message += f"\n\n💡 {invalid_sessions} session files không hợp lệ đã được xóa tự động."
+            
+            QMessageBox.information(self, "Kết quả Load Session", result_message)
                 
-            except Exception as e:
-                QMessageBox.critical(self, "Lỗi import", f"Không thể import file:\n{str(e)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Lỗi load session", f"Không thể load session files:\n{str(e)}")
+            print(f"[ERROR] Load sessions error: {e}")
 
     def open_folder_manager(self):
         """Open folder manager dialog"""
         try:
             from src.ui.folder_manager import FolderManagerDialog
-            dialog = FolderManagerDialog(self.folder_map, parent=self)
-            if dialog.exec() == QDialog.Accepted: # type: ignore
-                self.folder_map = dialog.get_folder_map()
-                self.save_folder_map()
-                self.load_folder_list_to_combo()
-                self.update_account_table()
-                # Emit signal for other tabs
-                if hasattr(self, 'folders_updated'):
-                    self.folders_updated.emit()
+            dialog = FolderManagerDialog(self.accounts, self.folder_map, parent=self)
+            dialog.folders_updated.connect(self.on_folders_updated)
+            dialog.exec()
         except ImportError:
             QMessageBox.information(self, "Thông báo", "Folder manager chưa được implement")
 
@@ -677,22 +771,38 @@ class AccountManagementTab(QWidget):
         try:
             from src.ui.context_menus import AccountContextMenu
             menu = AccountContextMenu(self)
-            menu.exec(self.account_table.viewport().mapToGlobal(pos))
+            menu.show_account_context_menu(pos)
         except ImportError:
             print("[DEBUG] Context menu not available")
 
     def on_table_item_double_clicked(self, index):
-        """Handle double click on table item"""
-        if index.isValid() and index.row() < len(self.accounts):
-            account = self.accounts[index.row()]
-            QMessageBox.information(
-                self, "Chi tiết tài khoản",
-                f"Username: {account.get('username', 'N/A')}\n"
-                f"Password: {account.get('password', 'N/A')}\n"
-                f"Status: {account.get('status', 'N/A')}\n"
-                f"Proxy: {account.get('proxy', 'N/A')}\n"
-                f"Permanent Proxy: {account.get('permanent_proxy', 'N/A')}"
-            )
+        """Handle double click on table item
+        Lưu ý: QTableWidget.itemDoubleClicked truyền vào QTableWidgetItem, không phải QModelIndex
+        """
+        if not index:
+            return
+
+        try:
+            # index ở đây là QTableWidgetItem
+            row = index.row()
+        except AttributeError:
+            # Phòng trường hợp tham số là QModelIndex
+            row = index.row() if hasattr(index, "row") else -1
+
+        if row < 0 or row >= len(self.accounts):
+            return
+
+        account = self.accounts[row]
+        QMessageBox.information(
+            self, "Chi tiết tài khoản",
+            f"Số điện thoại: {account.get('phone', 'N/A')}\n"
+            f"Username: {account.get('username', 'N/A')}\n"
+            f"Telegram Username: {account.get('telegram_username', 'N/A')}\n"
+            f"Mật khẩu 2FA: {account.get('two_fa_password', 'N/A')}\n"
+            f"Status: {account.get('status', 'N/A')}\n"
+            f"Proxy: {account.get('proxy', 'N/A')}\n"
+            f"Permanent Proxy: {account.get('permanent_proxy', 'N/A')}"
+        )
     
     def login_telegram(self):
         """Đăng nhập tài khoản Telegram mới"""
@@ -710,8 +820,12 @@ class AccountManagementTab(QWidget):
             
             # Thêm tài khoản mới
             new_account = {
+                "selected": False,
                 "username": phone,
                 "phone": phone,
+                "password": "",
+                "two_fa_password": "",  # Mật khẩu 2FA
+                "telegram_username": "",  # Username Telegram
                 "status": "Chưa đăng nhập",
                 "proxy": "",
                 "permanent_proxy": "",  # ⭐ NEW: Thêm trường permanent_proxy
@@ -728,102 +842,588 @@ class AccountManagementTab(QWidget):
             QMessageBox.information(self, "Thành công", f"Đã thêm tài khoản {phone}!")
 
     def login_selected_accounts(self):
-        """Đăng nhập các tài khoản đã chọn"""
-        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        """Đăng nhập thật các tài khoản đã chọn"""
+        # Lấy tài khoản đã chọn từ checkbox trên bảng (thay vì từ biến selected)
+        selected_accounts = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
         if not selected_accounts:
             QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
             return
 
-        # Tạo progress dialog
-        progress = QProgressDialog("Đang đăng nhập tài khoản...", "Hủy", 0, len(selected_accounts), self)
-        progress.setWindowModality(Qt.WindowModal)
-        progress.setWindowTitle("Đăng nhập tài khoản")
-        progress.setAutoClose(True)
-        progress.setAutoReset(True)
+        # Hiển thị dialog xác nhận
+        reply = QMessageBox.question(
+            self,
+            "Xác nhận đăng nhập",
+            f"Bạn có muốn đăng nhập {len(selected_accounts)} tài khoản đã chọn?\n"
+            f"Quá trình này có thể mất vài phút...",
+            QMessageBox.Yes | QMessageBox.No
+        )
 
-        # Đăng nhập từng tài khoản
-        for i, account in enumerate(selected_accounts):
-            if progress.wasCanceled():
-                break
+        if reply == QMessageBox.Yes:
+            # Tạo progress dialog
+            progress = QProgressDialog("Đang đăng nhập tài khoản...", "Hủy", 0, len(selected_accounts), self)
+            progress.setWindowModality(Qt.WindowModality.WindowModal)
+            progress.show()
 
-            username = account.get('username', '')
-            progress.setLabelText(f"Đang đăng nhập {username}...")
-            progress.setValue(i)
+            # Đăng nhập từng tài khoản
+            for i, account in enumerate(selected_accounts):
+                if progress.wasCanceled():
+                    break
 
-            try:
-                # Khởi tạo driver với proxy nếu có
-                proxy = None
-                if self.use_proxy:
-                    permanent_proxy = account.get('permanent_proxy', '').strip()
-                    if permanent_proxy:
-                        proxy = permanent_proxy
+                username = account.get('username', '')
+                password = account.get('password', '')
+                proxy = account.get('proxy', '') if self.use_proxy else None
+
+                if username:
+                    progress.setLabelText(f"Đang đăng nhập: {username}")
+                    progress.setValue(i)
+                    QApplication.processEvents()  # Cập nhật UI
+
+                    # Thực hiện đăng nhập thật
+                    self.perform_real_login(username, password, proxy)
+
+            progress.setValue(len(selected_accounts))
+            progress.close()
+            QMessageBox.information(self, "Hoàn tất", f"Đã hoàn tất đăng nhập {len(selected_accounts)} tài khoản!")
+
+    def check_live_selected_accounts(self):
+        """Check live thật 100% các tài khoản đã chọn - buộc phải đăng nhập"""
+        # Lấy tài khoản đã chọn từ checkbox trên bảng
+        selected_accounts = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
+        if not selected_accounts:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
+            return
+
+        # Hiển thị dialog xác nhận
+        reply = QMessageBox.question(
+            self,
+            "Xác nhận Check Live",
+            f"🔍 CHECK LIVE THẬT 100%\n\n"
+            f"Sẽ đăng nhập thật vào {len(selected_accounts)} tài khoản để kiểm tra trạng thái live/die.\n"
+            f"⚠️ Quá trình này sẽ bỏ qua session có sẵn và đăng nhập từ đầu.\n\n"
+            f"Bạn có muốn tiếp tục?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # Tạo progress dialog
+            progress = QProgressDialog("Đang check live tài khoản...", "Hủy", 0, len(selected_accounts), self)
+            progress.setWindowModality(Qt.WindowModal)
+            progress.show()
+            
+            live_count = 0
+            die_count = 0
+            error_count = 0
+            
+            # Check live từng tài khoản
+            for i, account in enumerate(selected_accounts):
+                if progress.wasCanceled():
+                    break
+                    
+                username = account.get('phone', account.get('username', ''))
+                two_fa_password = account.get('two_fa_password', account.get('password', ''))
+                
+                if username:
+                    progress.setLabelText(f"Check live: {username}")
+                    progress.setValue(i)
+                    QApplication.processEvents()
+                    
+                    # Thực hiện check live thật
+                    result = self.perform_real_check_live(username, two_fa_password)
+                    if result == "LIVE":
+                        live_count += 1
+                    elif result == "DIE":
+                        die_count += 1
                     else:
-                        proxy = account.get('proxy', '').strip()
+                        error_count += 1
+                    
+            progress.setValue(len(selected_accounts))
+            progress.close()
+            
+            # Hiển thị kết quả
+            QMessageBox.information(
+                self, "Kết quả Check Live", 
+                f"📊 KẾT QUẢ CHECK LIVE:\n\n"
+                f"✅ Tài khoản LIVE: {live_count}\n"
+                f"❌ Tài khoản DIE: {die_count}\n"
+                f"⚠️ Lỗi/Không check được: {error_count}\n"
+                f"📋 Tổng cộng: {len(selected_accounts)}"
+            )
 
-                driver = self.init_driver(proxy=proxy, username=username)
-                if not driver:
-                    account['status'] = "Lỗi khởi tạo driver"
-                    continue
+    def perform_real_login(self, username, password, proxy=None):
+        """Đăng nhập thật bằng Telegram API với kiểm tra session validation"""
+        try:
+            self.update_account_status(username, "Đang kiểm tra session...")
+            
+            # Kiểm tra session file có tồn tại không
+            session_file = f"sessions/{username.replace('+', '')}.session"
+            
+            if os.path.exists(session_file):
+                # KHÔNG NGAY LẬP TỨC BẢO "ĐÃ ĐĂNG NHẬP" - PHẢI VALIDATE SESSION TRƯỚC
+                self.update_account_status(username, "🔍 Đang xác thực session...")
+                
+                # Kiểm tra session có còn hoạt động không
+                session_valid = self.validate_telegram_session(username)
+                if session_valid:
+                    self.update_account_status(username, "✅ Session hợp lệ - Đã đăng nhập!")
+                    return
+                else:
+                    self.update_account_status(username, "⚠️ Session hết hạn - Cần đăng nhập lại...")
+                    # Xóa session file cũ
+                    try:
+                        os.remove(session_file)
+                        print(f"[INFO] Đã xóa session file hết hạn: {session_file}")
+                    except Exception as e:
+                        print(f"[WARN] Không thể xóa session file: {e}")
+                    # Tiếp tục với quá trình đăng nhập mới bên dưới
+            
+            # Nếu chưa có session, thực hiện đăng nhập thật
+            self.update_account_status(username, "🚀 Bắt đầu đăng nhập thật...")
+            
+            # Import telethon với error handling tốt hơn
+            try:
+                from telethon.sync import TelegramClient
+                from telethon.errors import (
+                    PhoneCodeInvalidError, 
+                    PhoneNumberInvalidError,
+                    SessionPasswordNeededError
+                )
+                print(f"[INFO] Đã import thành công telethon cho {username}")
+            except ImportError as import_error:
+                self.update_account_status(username, "❌ Chưa cài đặt telethon")
+                QMessageBox.warning(self, "Lỗi", "Cần cài đặt thư viện telethon:\npip install telethon")
+                print(f"[ERROR] Import telethon failed: {import_error}")
+                return
+            
+            try:
+                # API credentials (cần có từ my.telegram.org)
+                api_id = 29836061  # Thay bằng API ID thật của bạn
+                api_hash = 'b2f56fe3fb8af3dd1ddb80c85b72f1e4'  # Thay bằng API Hash thật
+                
+                session_name = f"sessions/{username.replace('+', '')}"
+                
+                # Tạo thư mục sessions nếu chưa có
+                os.makedirs("sessions", exist_ok=True)
 
-                # Thêm vào danh sách active drivers
-                self.active_drivers.append(driver)
-
-                # Đăng nhập
-                driver.get("https://web.telegram.org/k/")
-                time.sleep(5)  # Chờ trang load
+                # Khởi tạo client
+                client = TelegramClient(session_name, api_id, api_hash)
+                
+                self.update_account_status(username, "Đang kết nối Telegram...")
+                client.connect()
 
                 # Kiểm tra đã đăng nhập chưa
-                if "web.telegram.org/k/" in driver.current_url:
-                    account['status'] = "Đã đăng nhập"
-                else:
-                    # Nhập số điện thoại
-                    phone_input = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.NAME, "phone"))
-                    )
-                    phone_input.clear()
-                    phone_input.send_keys(username)
-                    time.sleep(1)
-
-                    # Click nút Next/Submit
-                    next_button = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, "button[type='submit']"))
-                    )
-                    next_button.click()
-
-                    # Đợi code OTP từ user
-                    code, ok = QInputDialog.getText(
-                        self, 
-                        "Nhập mã OTP", 
-                        f"Nhập mã OTP cho {username}:"
-                    )
-                    if ok and code:
-                        # Nhập code OTP
-                        code_input = WebDriverWait(driver, 10).until(
-                            EC.presence_of_element_located((By.NAME, "code"))
+                if client.is_user_authorized():
+                    self.update_account_status(username, "✅ Đã đăng nhập thành công!")
+                    client.disconnect()
+                    return
+                
+                # Gửi mã xác thực
+                self.update_account_status(username, "Đang gửi mã xác thực...")
+                phone = username if username.startswith('+') else f'+{username}'
+                
+                try:
+                    sent_code = client.send_code_request(phone)
+                    print(f"[INFO] Đã gửi mã xác thực đến {phone}")
+                except PhoneNumberInvalidError:
+                    self.update_account_status(username, "❌ Số điện thoại không hợp lệ")
+                    client.disconnect()
+                    return
+                except Exception as send_error:
+                    self.update_account_status(username, f"❌ Lỗi gửi mã: {str(send_error)}")
+                    client.disconnect()
+                    return
+                
+                # Hiển thị dialog nhập mã
+                self.update_account_status(username, "📱 Nhập mã xác thực...")
+                from PySide6.QtWidgets import QInputDialog
+                
+                code, ok = QInputDialog.getText(
+                    self, 
+                    "Mã xác thực Telegram", 
+                    f"Nhập mã xác thực gửi đến {phone}:"
+                )
+                
+                if ok and code:
+                    self.update_account_status(username, "Đang xác thực...")
+                    
+                    try:
+                        client.sign_in(phone, code)
+                        
+                        # ⭐ SAU KHI ĐĂNG NHẬP THÀNH CÔNG - LẤY THÔNG TIN USER
+                        try:
+                            me = client.get_me()
+                            if me:
+                                # Cập nhật username Telegram vào dữ liệu
+                                if me.username:
+                                    for account in self.accounts:
+                                        if account.get('phone') == username or account.get('username') == username:
+                                            account['telegram_username'] = me.username
+                                            print(f"[SUCCESS] Đã cập nhật username Telegram: @{me.username} cho {username}")
+                                            break
+                                    
+                                    # Lưu dữ liệu ngay lập tức
+                                    self.save_accounts()
+                                    self.update_account_table()
+                                    
+                                    self.update_account_status(username, f"✅ Đăng nhập thành công - @{me.username}")
+                                else:
+                                    self.update_account_status(username, "✅ Đăng nhập thành công - Chưa có username")
+                            else:
+                                self.update_account_status(username, "✅ Đăng nhập thành công!")
+                        except Exception as user_info_error:
+                            print(f"[WARN] Không thể lấy thông tin user sau đăng nhập: {user_info_error}")
+                            self.update_account_status(username, "✅ Đăng nhập thành công!")
+                        
+                    except PhoneCodeInvalidError:
+                        self.update_account_status(username, "❌ Mã xác thực sai")
+                        
+                    except SessionPasswordNeededError:
+                        self.update_account_status(username, "⚠️ Cần mật khẩu 2FA")
+                        # Hiển thị dialog nhập 2FA password
+                        two_fa_password, ok_2fa = QInputDialog.getText(
+                            self, 
+                            "Mật khẩu 2FA", 
+                            f"Nhập mật khẩu 2FA cho {phone}:",
+                            QInputDialog.Password
                         )
-                        code_input.clear()
-                        code_input.send_keys(code)
-                        time.sleep(1)
-
-                        # Kiểm tra kết quả đăng nhập
-                        if "web.telegram.org/k/" in driver.current_url:
-                            account['status'] = "Đã đăng nhập"
+                        
+                        if ok_2fa and two_fa_password:
+                            try:
+                                client.sign_in(password=two_fa_password)
+                                self.update_account_status(username, "✅ Đăng nhập thành công với 2FA!")
+                                
+                                # Lưu 2FA password vào account
+                                for account in self.accounts:
+                                    if account.get('phone') == username or account.get('username') == username:
+                                        account['two_fa_password'] = two_fa_password
+                                        break
+                                self.save_accounts()
+                                
+                            except Exception as two_fa_error:
+                                self.update_account_status(username, f"❌ Lỗi 2FA: {str(two_fa_error)}")
                         else:
-                            account['status'] = "Đăng nhập thất bại"
-                    else:
-                        account['status'] = "Đã hủy đăng nhập"
+                            self.update_account_status(username, "❌ Đã hủy nhập 2FA")
+                        
+                    except Exception as sign_error:
+                        self.update_account_status(username, f"❌ Lỗi đăng nhập: {str(sign_error)}")
+                        print(f"[ERROR] Sign in error for {username}: {sign_error}")
+                else:
+                    self.update_account_status(username, "❌ Đã hủy đăng nhập")
+                
+                client.disconnect()
+                
+            except Exception as telegram_error:
+                self.update_account_status(username, f"❌ Lỗi Telegram: {str(telegram_error)}")
+                print(f"[ERROR] Telegram error for {username}: {telegram_error}")
+                
+        except Exception as e:
+            self.update_account_status(username, f"❌ Lỗi: {str(e)}")
+            print(f"[ERROR] Login error: {e}")
+
+    def validate_telegram_session(self, username):
+        """Kiểm tra session Telegram có còn hoạt động hay không"""
+        try:
+            from telethon.sync import TelegramClient
+            from telethon.errors import AuthKeyUnregisteredError, UnauthorizedError
+            
+            # API credentials
+            api_id = 29836061
+            api_hash = 'b2f56fe3fb8af3dd1ddb80c85b72f1e4'
+            
+            session_name = f"sessions/{username.replace('+', '')}"
+            
+            # Tạo client và kiểm tra
+            client = TelegramClient(session_name, api_id, api_hash)
+            
+            try:
+                client.connect()
+                
+                # Kiểm tra xem user có còn được authorize không
+                if client.is_user_authorized():
+                    # Thử thực hiện một thao tác đơn giản để chắc chắn session còn hoạt động
+                    try:
+                        me = client.get_me()
+                        if me:
+                            print(f"[SUCCESS] Session hợp lệ cho {username} - User: @{me.username or 'N/A'}")
+                            
+                            # ⭐ CẬP NHẬT USERNAME KHI VALIDATE SESSION
+                            if me.username:
+                                for account in self.accounts:
+                                    if account.get('phone') == username or account.get('username') == username:
+                                        if account.get('telegram_username') != me.username:
+                                            account['telegram_username'] = me.username
+                                            print(f"[INFO] Đã cập nhật username từ session: @{me.username} cho {username}")
+                                            # Lưu dữ liệu và cập nhật UI
+                                            self.save_accounts()
+                                            self.update_account_table()
+                                        break
+                            
+                            client.disconnect()
+                            return True
+                    except Exception as api_error:
+                        print(f"[ERROR] API call failed for {username}: {api_error}")
+                        client.disconnect()
+                        return False
+                else:
+                    print(f"[WARN] Session không được authorize cho {username}")
+                    client.disconnect()
+                    return False
+                    
+            except (AuthKeyUnregisteredError, UnauthorizedError) as auth_error:
+                print(f"[ERROR] Session không hợp lệ cho {username}: {auth_error}")
+                client.disconnect()
+                return False
+                
+            except Exception as conn_error:
+                print(f"[ERROR] Không thể kết nối session cho {username}: {conn_error}")
+                if client:
+                    client.disconnect()
+                return False
+                
+        except ImportError:
+            print(f"[ERROR] Chưa cài đặt telethon - không thể validate session")
+            return False  # Không thể kiểm tra, coi như session invalid
+            
+        except Exception as e:
+            print(f"[ERROR] Lỗi validate session cho {username}: {e}")
+            return False
+
+    def perform_real_check_live(self, username, two_fa_password):
+        """Check live thật 100% bằng cách đăng nhập thật vào Telegram"""
+        try:
+            self.update_account_status(username, "🔍 Đang check live...")
+            
+            # XÓA SESSION CŨ TRƯỚC KHI CHECK LIVE
+            session_file = f"sessions/{username.replace('+', '')}.session"
+            if os.path.exists(session_file):
+                try:
+                    os.remove(session_file)
+                    print(f"[INFO] Đã xóa session cũ để check live: {session_file}")
+                except Exception as e:
+                    print(f"[WARN] Không thể xóa session cũ: {e}")
+            
+            try:
+                from telethon.sync import TelegramClient
+                from telethon.errors import (
+                    PhoneCodeInvalidError, 
+                    PhoneNumberInvalidError,
+                    SessionPasswordNeededError,
+                    FloodWaitError,
+                    PhoneNumberBannedError,
+                    AuthKeyUnregisteredError,
+                    UserDeactivatedError,
+                    UserDeactivatedBanError
+                )
+                
+                # API credentials
+                api_id = 29836061
+                api_hash = 'b2f56fe3fb8af3dd1ddb80c85b72f1e4'
+                
+                session_name = f"sessions/{username.replace('+', '')}_temp"
+                
+                # Tạo thư mục sessions nếu chưa có
+                os.makedirs("sessions", exist_ok=True)
+                
+                # Khởi tạo client
+                client = TelegramClient(session_name, api_id, api_hash)
+                
+                self.update_account_status(username, "🚀 Đăng nhập để check live...")
+                client.connect()
+                
+                # Kiểm tra xem đã đăng nhập chưa (không nên có với session temp mới)
+                if client.is_user_authorized():
+                    # Nếu đã authorize, check thông tin user
+                    try:
+                        me = client.get_me()
+                        if me:
+                            self.update_account_status(username, "✅ LIVE - Tài khoản hoạt động")
+                            client.disconnect()
+                            # Xóa temp session
+                            try:
+                                os.remove(f"{session_name}.session")
+                            except:
+                                pass
+                            return "LIVE"
+                    except Exception as api_error:
+                        print(f"[ERROR] API call failed cho {username}: {api_error}")
+                        self.update_account_status(username, "❌ DIE - Không thể truy cập")
+                        client.disconnect()
+                        return "DIE"
+                
+                # Gửi mã xác thực
+                self.update_account_status(username, "📱 Gửi mã xác thực...")
+                phone = username if username.startswith('+') else f'+{username}'
+                
+                try:
+                    sent_code = client.send_code_request(phone)
+                except PhoneNumberBannedError:
+                    self.update_account_status(username, "❌ DIE - Số điện thoại bị cấm")
+                    client.disconnect()
+                    return "DIE"
+                except PhoneNumberInvalidError:
+                    self.update_account_status(username, "❌ DIE - Số điện thoại không hợp lệ")
+                    client.disconnect()
+                    return "DIE"
+                except FloodWaitError as e:
+                    self.update_account_status(username, f"⏳ Cần chờ {e.seconds}s - FloodWait")
+                    client.disconnect()
+                    return "ERROR"
+                
+                # Hiển thị dialog nhập mã
+                self.update_account_status(username, "🔢 Nhập mã OTP...")
+                from PySide6.QtWidgets import QInputDialog
+                
+                code, ok = QInputDialog.getText(
+                        self, 
+                    f"Mã OTP cho {username}",
+                    f"Nhập mã OTP gửi đến {phone}:\n(Để check live tài khoản)"
+                )
+
+                if ok and code:
+                    self.update_account_status(username, "🔐 Đăng nhập với OTP...")
+
+                    try:
+                        # Thử đăng nhập với OTP
+                        client.sign_in(phone, code)
+
+                        # Nếu cần 2FA
+                        if two_fa_password:
+                            self.update_account_status(username, "🔐 Nhập mật khẩu 2FA...")
+                            try:
+                                client.sign_in(password=two_fa_password)
+                            except Exception as two_fa_error:
+                                self.update_account_status(username, "❌ DIE - Mật khẩu 2FA sai")
+                                client.disconnect()
+                                return "DIE"
+                        else:
+                            self.update_account_status(username, "⚠️ Cần mật khẩu 2FA")
+                            client.disconnect()
+                            return "ERROR"
+
+                    except PhoneCodeInvalidError:
+                        self.update_account_status(username, "❌ DIE - Mã OTP sai")
+                        client.disconnect()
+                        return "DIE"
+
+                    except (UserDeactivatedError, UserDeactivatedBanError):
+                        self.update_account_status(username, "❌ DIE - Tài khoản bị vô hiệu hóa")
+                        client.disconnect()
+                        return "DIE"
+
+                    except AuthKeyUnregisteredError:
+                        self.update_account_status(username, "❌ DIE - Auth key không hợp lệ")
+                        client.disconnect()
+                        return "DIE"
+
+                    except Exception as sign_error:
+                        self.update_account_status(username, f"❌ DIE - Lỗi đăng nhập: {str(sign_error)}")
+                        client.disconnect()
+                        return "DIE"
+
+                    # Kiểm tra thông tin sau khi đăng nhập thành công
+                    try:
+                        me = client.get_me()
+                        if me:
+                            self.update_account_status(username, f"✅ LIVE - @{me.username or 'N/A'}")
+                            
+                            # Lưu username Telegram nếu có
+                            if me.username:
+                                for account in self.accounts:
+                                    if account.get('phone') == username or account.get('username') == username:
+                                        account['telegram_username'] = me.username
+                                        break
+                            
+                            client.disconnect()
+                            # Xóa temp session
+                            try:
+                                os.remove(f"{session_name}.session")
+                            except:
+                                pass
+                            return "LIVE"
+                        else:
+                            self.update_account_status(username, "❌ DIE - Không lấy được thông tin user")
+                            client.disconnect()
+                            return "DIE"
+                    except Exception as api_error:
+                        self.update_account_status(username, f"❌ DIE - API error: {str(api_error)}")
+                        client.disconnect()
+                        return "DIE"
+                        
+                else:
+                    self.update_account_status(username, "⏹️ Đã hủy check live")
+                    client.disconnect()
+                    return "ERROR"
+                    
+            except ImportError:
+                self.update_account_status(username, "❌ Chưa cài đặt telethon")
+                return "ERROR"
 
             except Exception as e:
-                print(f"[ERROR] Lỗi đăng nhập {username}: {e}")
-                account['status'] = f"Lỗi: {str(e)[:50]}"
+                self.update_account_status(username, f"❌ Lỗi check live: {str(e)}")
+                print(f"[ERROR] Check live error cho {username}: {e}")
+                return "ERROR"
 
             finally:
-                # Cập nhật UI
-                self.save_accounts()
-                self.update_account_table()
+                # Cleanup temp session file
+                try:
+                    temp_session = f"sessions/{username.replace('+', '')}_temp.session"
+                    if os.path.exists(temp_session):
+                        os.remove(temp_session)
+                except:
+                    pass
+                    
+        except Exception as outer_error:
+            self.update_account_status(username, f"❌ Lỗi tổng quát: {str(outer_error)}")
+            return "ERROR"
+        
+        return "ERROR"  # Đảm bảo hàm perform_real_check_live kết thúc đúng
 
-        progress.setValue(len(selected_accounts))
-        QMessageBox.information(self, "Hoàn tất", "Đã hoàn tất quá trình đăng nhập!")
+    def get_telegram_username_from_session(self, username):
+        """Lấy username Telegram từ session có sẵn"""
+        client = None
+        try:
+            from telethon.sync import TelegramClient
+            
+            # API credentials
+            api_id = 29836061
+            api_hash = 'b2f56fe3fb8af3dd1ddb80c85b72f1e4'
+            
+            session_name = f"sessions/{username.replace('+', '')}"
+            
+            # Tạo client và lấy thông tin
+            client = TelegramClient(session_name, api_id, api_hash)
+            client.connect()
+            
+            if client.is_user_authorized():
+                me = client.get_me()
+                if me and me.username:
+                    return me.username
+            
+            return ""
+            
+        except ImportError:
+            print("[ERROR] Chưa cài đặt telethon")
+            return ""
+        except Exception as e:
+            print(f"[ERROR] Lỗi lấy username từ session: {e}")
+            return ""
+        finally:
+            if client:
+                try:
+                    client.disconnect()
+                except Exception as e:
+                    print(f"[ERROR] Lỗi khi ngắt kết nối client: {e}")
 
     def select_selected_accounts(self):
         """Chọn các tài khoản đang được chọn trong bảng"""
@@ -869,7 +1469,16 @@ class AccountManagementTab(QWidget):
 
     def delete_selected_accounts(self):
         """Xóa các tài khoản đã chọn"""
-        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        # Lấy tài khoản đã chọn từ checkbox trên bảng
+        selected_accounts = []
+        selected_indices = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+                    selected_indices.append(row)
+        
         if not selected_accounts:
             QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
             return
@@ -882,8 +1491,9 @@ class AccountManagementTab(QWidget):
         )
 
         if reply == QMessageBox.Yes:
-            # Xóa tài khoản
-            self.accounts = [acc for acc in self.accounts if not acc.get('selected')]
+            # Xóa tài khoản theo indices (từ cuối lên đầu để không bị lệch index)
+            for index in sorted(selected_indices, reverse=True):
+                del self.accounts[index]
             self.save_accounts()
             self.update_account_table()
             QMessageBox.information(self, "Thành công", f"Đã xóa {len(selected_accounts)} tài khoản!")
@@ -909,7 +1519,14 @@ class AccountManagementTab(QWidget):
 
     def add_selected_to_folder(self, folder_name):
         """Thêm các tài khoản đã chọn vào thư mục"""
-        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        # Lấy tài khoản đã chọn từ checkbox trên bảng
+        selected_accounts = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
         if not selected_accounts:
             QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
             return
@@ -933,7 +1550,14 @@ class AccountManagementTab(QWidget):
 
     def remove_selected_from_folder(self):
         """Xóa các tài khoản đã chọn khỏi thư mục hiện tại"""
-        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        # Lấy tài khoản đã chọn từ checkbox trên bảng
+        selected_accounts = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
         if not selected_accounts:
             QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
             return
@@ -992,7 +1616,14 @@ class AccountManagementTab(QWidget):
 
     def set_account_status_selected(self, status):
         """Đặt trạng thái cho các tài khoản đã chọn"""
-        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        # Lấy tài khoản đã chọn từ checkbox trên bảng
+        selected_accounts = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
         if not selected_accounts:
             QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
             return
@@ -1011,7 +1642,14 @@ class AccountManagementTab(QWidget):
 
     def toggle_stealth_mode(self):
         """Bật/tắt chế độ ẩn danh cho các tài khoản đã chọn"""
-        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        # Lấy tài khoản đã chọn từ checkbox trên bảng
+        selected_accounts = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
         if not selected_accounts:
             QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
             return
@@ -1030,7 +1668,14 @@ class AccountManagementTab(QWidget):
 
     def export_accounts(self):
         """Xuất tài khoản ra file"""
-        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        # Lấy tài khoản đã chọn từ checkbox trên bảng
+        selected_accounts = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
         if not selected_accounts:
             QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
             return
@@ -1083,7 +1728,14 @@ class AccountManagementTab(QWidget):
 
     def update_selected_proxy_info(self):
         """Cập nhật thông tin proxy cho các tài khoản đã chọn"""
-        selected_accounts = [acc for acc in self.accounts if acc.get('selected')]
+        # Lấy tài khoản đã chọn từ checkbox trên bảng
+        selected_accounts = []
+        for row in range(self.account_table.rowCount()):
+            checkbox_item = self.account_table.item(row, 0)
+            if checkbox_item and checkbox_item.data(CheckboxDelegate.CheckboxStateRole):
+                if row < len(self.accounts):
+                    selected_accounts.append(self.accounts[row])
+        
         if not selected_accounts:
             QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một tài khoản!")
             return
@@ -1136,41 +1788,50 @@ class AccountManagementTab(QWidget):
             stt_item.setTextAlignment(Qt.AlignCenter)
             self.account_table.setItem(row, 1, stt_item)
             
-            # Username
-            username_item = QTableWidgetItem(account.get('username', ''))
-            self.account_table.setItem(row, 2, username_item)
+            # Số điện thoại (ưu tiên phone, fallback username)
+            phone_number = account.get('phone', account.get('username', ''))
+            phone_item = QTableWidgetItem(phone_number)
+            self.account_table.setItem(row, 2, phone_item)
             
-            # Password
-            password_item = QTableWidgetItem(account.get('password', ''))
+            # Mật khẩu 2FA (ưu tiên two_fa_password, fallback password)
+            two_fa_password = account.get('two_fa_password', account.get('password', ''))
+            password_item = QTableWidgetItem(two_fa_password)
             self.account_table.setItem(row, 3, password_item)
             
-            # Status
+            # Username Telegram (hiển thị @username thực từ Telegram)
+            telegram_username = account.get('telegram_username', '')
+            if telegram_username and not telegram_username.startswith('@'):
+                telegram_username = f"@{telegram_username}"
+            username_item = QTableWidgetItem(telegram_username)
+            self.account_table.setItem(row, 4, username_item)
+            
+            # Status (moved to column 5)
             status_item = QTableWidgetItem(account.get('status', 'Chưa đăng nhập'))
-            self.account_table.setItem(row, 4, status_item)
+            self.account_table.setItem(row, 5, status_item)
 
-            # Proxy
+            # Proxy (moved to column 6)
             proxy_item = QTableWidgetItem(account.get('proxy', ''))
-            self.account_table.setItem(row, 5, proxy_item)
+            self.account_table.setItem(row, 6, proxy_item)
             
-            # Permanent Proxy
+            # Permanent Proxy (moved to column 7)
             permanent_proxy_item = QTableWidgetItem(account.get('permanent_proxy', ''))
-            self.account_table.setItem(row, 6, permanent_proxy_item)
+            self.account_table.setItem(row, 7, permanent_proxy_item)
             
-            # Proxy Status
+            # Proxy Status (moved to column 8)
             proxy_status_item = QTableWidgetItem(account.get('proxy_status', 'Chưa kiểm tra'))
-            self.account_table.setItem(row, 7, proxy_status_item)
+            self.account_table.setItem(row, 8, proxy_status_item)
             
-            # Followers
+            # Followers (moved to column 9)
             followers_item = QTableWidgetItem(str(account.get('followers', '')))
-            self.account_table.setItem(row, 8, followers_item)
+            self.account_table.setItem(row, 9, followers_item)
 
-            # Following
+            # Following (moved to column 10)
             following_item = QTableWidgetItem(str(account.get('following', '')))
-            self.account_table.setItem(row, 9, following_item)
+            self.account_table.setItem(row, 10, following_item)
             
-            # Last Action
+            # Last Action (moved to column 11)
             last_action_item = QTableWidgetItem(account.get('last_action', ''))
-            self.account_table.setItem(row, 10, last_action_item)
+            self.account_table.setItem(row, 11, last_action_item)
         
         self.update_stats(accounts_to_display)
 
@@ -1208,3 +1869,36 @@ class AccountManagementTab(QWidget):
                 filtered_accounts.append(account)
         
         self.update_account_table(filtered_accounts)
+
+    def update_account_status(self, username: str, status: str):
+        """Cập nhật trạng thái tài khoản trong bảng"""
+        try:
+            # Tìm và cập nhật account trong danh sách
+            for account in self.accounts:
+                if account.get('username') == username:
+                    account['status'] = status
+                    break
+            
+            # Cập nhật trong bảng
+            for row in range(self.account_table.rowCount()):
+                phone_item = self.account_table.item(row, 2)  # Số điện thoại column
+                if phone_item and phone_item.text() == username:
+                    status_item = self.account_table.item(row, 5)  # Status column (moved to column 5)
+                    if status_item:
+                        status_item.setText(status)
+                        # Update color based on status
+                        if "thành công" in status.lower() or "đã đăng nhập" in status.lower():
+                            status_item.setForeground(QColor("green"))
+                        elif "lỗi" in status.lower() or "thất bại" in status.lower():
+                            status_item.setForeground(QColor("red"))
+                        else:
+                            status_item.setForeground(QColor("black"))
+                    break
+            
+            # Lưu và cập nhật stats
+            self.save_accounts()
+            self.update_stats()
+            
+        except Exception as e:
+            print(f"[ERROR] Error updating status for {username}: {e}")
+

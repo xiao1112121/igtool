@@ -3,7 +3,7 @@
     "proxy": "142.111.48.150:6927:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "2.48s",
+    "speed": "2.28s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -11,7 +11,7 @@
     "proxy": "31.58.30.11:6593:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "2.57s",
+    "speed": "2.41s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -19,7 +19,7 @@
     "proxy": "198.12.112.132:5143:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "2.74s",
+    "speed": "2.91s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -27,7 +27,7 @@
     "proxy": "38.170.190.6:9357:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "3.80s",
+    "speed": "3.04s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -35,7 +35,7 @@
     "proxy": "154.30.250.127:5639:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "3.63s",
+    "speed": "3.04s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -43,7 +43,7 @@
     "proxy": "38.153.135.14:5394:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "3.71s",
+    "speed": "3.17s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
@@ -51,78 +51,78 @@
     "proxy": "104.232.209.107:6065:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "2.74s",
+    "speed": "2.41s",
     "note": "Test: www.instagram.com",
     "assigned_account": ""
   },
   {
     "proxy": "31.58.30.11:6593:hfhaklgorb:hfhaklgorb",
-    "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.58s",
-    "note": "Test: www.instagram.com"
-  },
-  {
-    "proxy": "38.170.190.6:9357:hfhaklgorb:hfhaklgorb",
-    "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.46s",
-    "note": "Test: www.instagram.com"
-  },
-  {
-    "proxy": "192.186.176.123:8173:hfhaklgorb:hfhaklgorb",
-    "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.64s",
-    "note": "Test: www.instagram.com"
-  },
-  {
-    "proxy": "154.30.250.127:5639:hfhaklgorb:hfhaklgorb",
-    "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "3.46s",
-    "note": "Test: www.instagram.com"
-  },
-  {
-    "proxy": "198.46.161.208:5258:hfhaklgorb:hfhaklgorb",
-    "type": "HTTP",
-    "status": "Hoạt động",
-    "speed": "2.57s",
-    "note": "Test: www.instagram.com"
-  },
-  {
-    "proxy": "142.111.48.150:6927:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
     "speed": "2.41s",
     "note": "Test: www.instagram.com"
   },
   {
+    "proxy": "38.170.190.6:9357:hfhaklgorb:hfhaklgorb",
+    "type": "HTTP",
+    "status": "Hoạt động",
+    "speed": "3.04s",
+    "note": "Test: www.instagram.com"
+  },
+  {
+    "proxy": "192.186.176.123:8173:hfhaklgorb:hfhaklgorb",
+    "type": "HTTP",
+    "status": "Hoạt động",
+    "speed": "2.99s",
+    "note": "Test: www.instagram.com"
+  },
+  {
+    "proxy": "154.30.250.127:5639:hfhaklgorb:hfhaklgorb",
+    "type": "HTTP",
+    "status": "Hoạt động",
+    "speed": "3.04s",
+    "note": "Test: www.instagram.com"
+  },
+  {
+    "proxy": "198.46.161.208:5258:hfhaklgorb:hfhaklgorb",
+    "type": "HTTP",
+    "status": "Hoạt động",
+    "speed": "2.41s",
+    "note": "Test: www.instagram.com"
+  },
+  {
+    "proxy": "142.111.48.150:6927:hfhaklgorb:hfhaklgorb",
+    "type": "HTTP",
+    "status": "Hoạt động",
+    "speed": "2.16s",
+    "note": "Test: www.instagram.com"
+  },
+  {
     "proxy": "198.12.112.132:5143:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "2.74s",
+    "speed": "2.75s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "38.153.135.14:5394:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "3.64s",
+    "speed": "3.17s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "104.253.77.181:5603:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "2.90s",
+    "speed": "2.54s",
     "note": "Test: www.instagram.com"
   },
   {
     "proxy": "104.232.209.107:6065:hfhaklgorb:hfhaklgorb",
     "type": "HTTP",
     "status": "Hoạt động",
-    "speed": "2.74s",
+    "speed": "2.28s",
     "note": "Test: www.instagram.com"
   }
 ]
