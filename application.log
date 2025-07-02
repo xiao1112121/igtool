@@ -29843,3 +29843,13 @@ IndentationError: expected an indented block after 'if' statement on line 34
 2025-07-03 03:36:02,519 - INFO - Loaded AI config from ai_config.json
 2025-07-03 03:36:02,520 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
 2025-07-03 03:36:02,520 - INFO - TelegramBotManager initialized
+2025-07-03 03:36:47,074 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-03 03:36:47,075 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-03 03:36:47,566 - INFO - Loaded AI config from ai_config.json
+2025-07-03 03:36:47,567 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-03 03:36:47,567 - INFO - TelegramBotManager initialized
+2025-07-03 03:38:17,451 - INFO - Failed to load SSL library: <class 'OSError'> (no library called "ssl" found)
+2025-07-03 03:38:17,452 - INFO - cryptg module not installed and libssl not found, falling back to (slower) Python encryption
+2025-07-03 03:38:17,964 - INFO - Loaded AI config from ai_config.json
+2025-07-03 03:38:17,964 - INFO - AI Client initialized with Groq API - Model: llama-3.1-8b-instant
+2025-07-03 03:38:17,964 - INFO - TelegramBotManager initialized

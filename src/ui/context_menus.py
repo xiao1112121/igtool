@@ -73,16 +73,68 @@ class AccountContextMenu(QMenu):
 
     # --- Các hàm xử lý selection ---
     def select_account_row(self, row):
-        self.parent.account_table.selectRow(row)
+        """Tick checkbox cho tất cả dòng được bôi đen"""
+        from src.ui.account_management import CheckboxDelegate
+        
+        # Lấy tất cả dòng được bôi đen
+        selected_ranges = self.parent.account_table.selectionModel().selectedRows()
+        selected_rows = [index.row() for index in selected_ranges]
+        
+        # Nếu không có dòng nào được bôi đen, chỉ tick dòng hiện tại
+        if not selected_rows:
+            selected_rows = [row]
+        
+        # Tick checkbox cho tất cả dòng được chọn
+        for selected_row in selected_rows:
+            if selected_row < self.parent.account_table.rowCount():
+                checkbox_item = self.parent.account_table.item(selected_row, 0)
+                if checkbox_item:
+                    checkbox_item.setData(CheckboxDelegate.CheckboxStateRole, True)
+        
+        self.parent.account_table.viewport().update()
+        print(f"[DEBUG] Đã tick checkbox cho {len(selected_rows)} dòng: {selected_rows}")
 
     def deselect_account_row(self, row):
-        self.parent.account_table.setRangeSelected(QTableWidgetSelectionRange(row, 0, row, self.parent.account_table.columnCount()-1), False)
+        """Bỏ tick checkbox cho tất cả dòng được bôi đen"""
+        from src.ui.account_management import CheckboxDelegate
+        
+        # Lấy tất cả dòng được bôi đen
+        selected_ranges = self.parent.account_table.selectionModel().selectedRows()
+        selected_rows = [index.row() for index in selected_ranges]
+        
+        # Nếu không có dòng nào được bôi đen, chỉ bỏ tick dòng hiện tại
+        if not selected_rows:
+            selected_rows = [row]
+        
+        # Bỏ tick checkbox cho tất cả dòng được chọn
+        for selected_row in selected_rows:
+            if selected_row < self.parent.account_table.rowCount():
+                checkbox_item = self.parent.account_table.item(selected_row, 0)
+                if checkbox_item:
+                    checkbox_item.setData(CheckboxDelegate.CheckboxStateRole, False)
+        
+        self.parent.account_table.viewport().update()
+        print(f"[DEBUG] Đã bỏ tick checkbox cho {len(selected_rows)} dòng: {selected_rows}")
 
     def select_all_account_rows(self):
-        self.parent.account_table.selectAll()
+        """Tick checkbox cho tất cả dòng"""
+        from src.ui.account_management import CheckboxDelegate
+        for row in range(self.parent.account_table.rowCount()):
+            checkbox_item = self.parent.account_table.item(row, 0)
+            if checkbox_item:
+                checkbox_item.setData(CheckboxDelegate.CheckboxStateRole, True)
+        self.parent.account_table.viewport().update()
+        print(f"[DEBUG] Đã tick checkbox cho tất cả {self.parent.account_table.rowCount()} dòng")
 
     def deselect_all_account_rows(self):
-        self.parent.account_table.clearSelection()
+        """Bỏ tick checkbox cho tất cả dòng"""
+        from src.ui.account_management import CheckboxDelegate
+        for row in range(self.parent.account_table.rowCount()):
+            checkbox_item = self.parent.account_table.item(row, 0)
+            if checkbox_item:
+                checkbox_item.setData(CheckboxDelegate.CheckboxStateRole, False)
+        self.parent.account_table.viewport().update()
+        print(f"[DEBUG] Đã bỏ tick checkbox cho tất cả {self.parent.account_table.rowCount()} dòng")
 
     # --- Các hàm xử lý tác vụ tài khoản ---
     def login_account(self, row):
