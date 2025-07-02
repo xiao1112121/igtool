@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QProgressBar, QComboBox, QCheckBox, QSpinBox, QGroupBox,
     QScrollArea, QFrame, QSplitter, QTabWidget, QApplication,
     QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QSizePolicy, QStyledItemDelegate, QMenu, QProgressDialog, QInputDialog, QSlider, QDialog)
-from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent, QMetaObject, Slot
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QSize, QModelIndex, QRect, QEvent, QMetaObject, Slot, QDateTime
 from PySide6.QtGui import QFont, QIcon, QPixmap, QColor, QPalette, QPainter, QPen, QGuiApplication, QAction
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -1007,9 +1007,8 @@ class AccountManagementTab(QWidget):
                 return
             
             try:
-                # API credentials (cần có từ my.telegram.org)
-                api_id = 29836061  # Thay bằng API ID thật của bạn
-                api_hash = 'b2f56fe3fb8af3dd1ddb80c85b72f1e4'  # Thay bằng API Hash thật
+                # API credentials (đọc từ telegram_config.json)
+                api_id, api_hash = self.load_telegram_config()
                 
                 session_name = f"sessions/{username.replace('+', '')}"
                 
@@ -1131,15 +1130,32 @@ class AccountManagementTab(QWidget):
             self.update_account_status(username, f"❌ Lỗi: {str(e)}")
             print(f"[ERROR] Login error: {e}")
 
+    def load_telegram_config(self):
+        """Đọc API credentials từ telegram_config.json"""
+        try:
+            import json
+            with open('telegram_config.json', 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                api_id = int(config['api_id'])
+                api_hash = config['api_hash']
+                print(f"[INFO] Đã load API config: api_id={api_id}")
+                return api_id, api_hash
+        except FileNotFoundError:
+            print("[ERROR] Không tìm thấy file telegram_config.json")
+            print("[INFO] Vui lòng tạo file telegram_config.json với API ID/Hash từ my.telegram.org")
+            return 123456, "your_api_hash_here"
+        except Exception as e:
+            print(f"[ERROR] Lỗi đọc telegram_config.json: {e}")
+            return 123456, "your_api_hash_here"
+
     def validate_telegram_session(self, username):
         """Kiểm tra session Telegram có còn hoạt động hay không"""
         try:
             from telethon.sync import TelegramClient
             from telethon.errors import AuthKeyUnregisteredError, UnauthorizedError
             
-            # API credentials
-            api_id = 29836061
-            api_hash = 'b2f56fe3fb8af3dd1ddb80c85b72f1e4'
+            # API credentials (đọc từ telegram_config.json)
+            api_id, api_hash = self.load_telegram_config()
             
             session_name = f"sessions/{username.replace('+', '')}"
             
@@ -1226,9 +1242,8 @@ class AccountManagementTab(QWidget):
                     UserDeactivatedBanError
                 )
                 
-                # API credentials
-                api_id = 29836061
-                api_hash = 'b2f56fe3fb8af3dd1ddb80c85b72f1e4'
+                # API credentials (đọc từ telegram_config.json)
+                api_id, api_hash = self.load_telegram_config()
                 
                 session_name = f"sessions/{username.replace('+', '')}_temp"
                 
@@ -1395,9 +1410,8 @@ class AccountManagementTab(QWidget):
         try:
             from telethon.sync import TelegramClient
             
-            # API credentials
-            api_id = 29836061
-            api_hash = 'b2f56fe3fb8af3dd1ddb80c85b72f1e4'
+            # API credentials (đọc từ telegram_config.json)
+            api_id, api_hash = self.load_telegram_config()
             
             session_name = f"sessions/{username.replace('+', '')}"
             
@@ -1805,8 +1819,11 @@ class AccountManagementTab(QWidget):
             username_item = QTableWidgetItem(telegram_username)
             self.account_table.setItem(row, 4, username_item)
             
-            # Status (moved to column 5)
-            status_item = QTableWidgetItem(account.get('status', 'Chưa đăng nhập'))
+            # Status với emoji và màu sắc (moved to column 5)
+            status_text = account.get('status', 'Chưa đăng nhập')
+            display_status, color = self.get_status_display(status_text)
+            status_item = QTableWidgetItem(display_status)
+            status_item.setForeground(color)
             self.account_table.setItem(row, 5, status_item)
 
             # Proxy (moved to column 6)
@@ -1870,29 +1887,94 @@ class AccountManagementTab(QWidget):
         
         self.update_account_table(filtered_accounts)
 
+    def get_status_display(self, status: str):
+        """Chuyển đổi status text thành emoji + màu sắc theo bảng trạng thái chuẩn"""
+        status_lower = status.lower()
+        
+        # ⏳ Đang kiểm tra - xám
+        if any(x in status_lower for x in ['đang kiểm tra', 'checking', 'kiểm tra']):
+            return "⏳ " + status, QColor("#808080")
+        
+        # 🔁 Đang đăng nhập - cam  
+        elif any(x in status_lower for x in ['đang đăng nhập', 'bắt đầu đăng nhập', 'đăng nhập', 'connecting']):
+            return "🔁 " + status, QColor("#FF8C00")
+        
+        # 📩 Chờ nhập mã - xanh dương
+        elif any(x in status_lower for x in ['chờ nhập mã', 'nhập mã', 'gửi mã', 'đã gửi mã', 'code']):
+            return "📩 " + status, QColor("#1E90FF")
+        
+        # 🔐 Yêu cầu mã 2FA - tím
+        elif any(x in status_lower for x in ['2fa', 'mật khẩu 2fa', 'password needed']):
+            return "🔐 " + status, QColor("#8A2BE2")
+        
+        # ✅ Session hợp lệ - xanh lá
+        elif any(x in status_lower for x in ['thành công', 'đã đăng nhập', 'session hợp lệ', 'authorized', 'live']):
+            return "✅ " + status, QColor("#32CD32")
+        
+        # ⚠️ Session hết hạn - vàng
+        elif any(x in status_lower for x in ['hết hạn', 'session hết hạn', 'cần đăng nhập lại', 'expired']):
+            return "⚠️ " + status, QColor("#FFD700")
+        
+        # 🌐❌ Proxy lỗi - đỏ
+        elif any(x in status_lower for x in ['proxy lỗi', 'proxy error', 'connection error']):
+            return "🌐❌ " + status, QColor("#FF0000")
+        
+        # 🚫 Tài khoản bị ban - đỏ đậm
+        elif any(x in status_lower for x in ['bị ban', 'banned', 'suspended', 'die']):
+            return "🚫 " + status, QColor("#8B0000")
+        
+        # 🤖 Đang tương tác - xanh lá đậm
+        elif any(x in status_lower for x in ['đang tương tác', 'sending', 'interacting']):
+            return "🤖 " + status, QColor("#006400")
+        
+        # ⏸️ Tạm dừng - xám nhạt
+        elif any(x in status_lower for x in ['tạm dừng', 'paused', 'stopped']):
+            return "⏸️ " + status, QColor("#C0C0C0")
+        
+        # ❓ Không phản hồi - cam nhạt
+        elif any(x in status_lower for x in ['không phản hồi', 'timeout', 'no response']):
+            return "❓ " + status, QColor("#DDA0DD")
+        
+        # 🔓 Đã đăng xuất - xám
+        elif any(x in status_lower for x in ['đã đăng xuất', 'logged out', 'chưa đăng nhập']):
+            return "🔓 " + status, QColor("#696969")
+        
+        # ❌ Lỗi không xác định - đỏ
+        elif any(x in status_lower for x in ['lỗi', 'error', 'failed', 'thất bại']):
+            return "❌ " + status, QColor("#FF0000")
+        
+        # Mặc định - đen
+        else:
+            return status, QColor("#000000")
+
     def update_account_status(self, username: str, status: str):
-        """Cập nhật trạng thái tài khoản trong bảng"""
+        """Cập nhật trạng thái tài khoản theo thời gian thực với emoji và màu sắc"""
         try:
             # Tìm và cập nhật account trong danh sách
             for account in self.accounts:
-                if account.get('username') == username:
+                if account.get('username') == username or account.get('phone') == username:
                     account['status'] = status
+                    account['last_update'] = QDateTime.currentDateTime().toString("hh:mm:ss")
                     break
             
-            # Cập nhật trong bảng
+            # Cập nhật trong bảng UI NGAY LẬP TỨC
             for row in range(self.account_table.rowCount()):
                 phone_item = self.account_table.item(row, 2)  # Số điện thoại column
                 if phone_item and phone_item.text() == username:
-                    status_item = self.account_table.item(row, 5)  # Status column (moved to column 5)
+                    status_item = self.account_table.item(row, 5)  # Status column
                     if status_item:
-                        status_item.setText(status)
-                        # Update color based on status
-                        if "thành công" in status.lower() or "đã đăng nhập" in status.lower():
-                            status_item.setForeground(QColor("green"))
-                        elif "lỗi" in status.lower() or "thất bại" in status.lower():
-                            status_item.setForeground(QColor("red"))
-                        else:
-                            status_item.setForeground(QColor("black"))
+                        # Lấy emoji và màu sắc theo bảng trạng thái chuẩn
+                        display_status, color = self.get_status_display(status)
+                        status_item.setText(display_status)
+                        status_item.setForeground(color)
+                        
+                        # Làm nổi bật dòng đang cập nhật
+                        status_item.setBackground(QColor("#F0F8FF"))
+                        
+                        # Auto-scroll đến dòng đang cập nhật
+                        self.account_table.scrollToItem(status_item)
+                        
+                        print(f"[UI] Cập nhật trạng thái: {username} → {display_status}")
                     break
             
             # Lưu và cập nhật stats

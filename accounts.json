@@ -23,7 +23,7 @@
         "telegram_username": "",
         "proxy": "",
         "permanent_proxy": "",
-        "status": "❌ Lỗi gửi mã: The api_id/api_hash combination is invalid (caused by SendCodeRequest)",
+        "status": "❌ Đã hủy đăng nhập",
         "followers": "",
         "following": "",
         "last_action": "Load session hợp lệ",
@@ -38,11 +38,12 @@
         "telegram_username": "",
         "proxy": "",
         "permanent_proxy": "",
-        "status": "❌ Lỗi check live: The api_id/api_hash combination is invalid (caused by SendCodeRequest)",
+        "status": "❌ Đã hủy đăng nhập",
         "followers": "",
         "following": "",
         "last_action": "Load session hợp lệ",
-        "proxy_status": "Chưa kiểm tra"
+        "proxy_status": "Chưa kiểm tra",
+        "last_update": "04:31:33"
     },
     {
         "selected": false,
@@ -128,7 +129,7 @@
         "telegram_username": "",
         "proxy": "",
         "permanent_proxy": "",
-        "status": "❌ Lỗi check live: The api_id/api_hash combination is invalid (caused by SendCodeRequest)",
+        "status": "❌ Đã hủy đăng nhập",
         "followers": "",
         "following": "",
         "last_action": "Load session hợp lệ",
